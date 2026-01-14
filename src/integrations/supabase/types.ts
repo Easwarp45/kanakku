@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      expenses: {
+        Row: {
+          amount: number
+          category: Database["public"]["Enums"]["expense_category"]
+          created_at: string
+          description: string | null
+          expense_date: string
+          id: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          receipt_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category?: Database["public"]["Enums"]["expense_category"]
+          created_at?: string
+          description?: string | null
+          expense_date?: string
+          id?: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          receipt_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: Database["public"]["Enums"]["expense_category"]
+          created_at?: string
+          description?: string | null
+          expense_date?: string
+          id?: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          receipt_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -58,7 +97,17 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      expense_category:
+        | "food"
+        | "transport"
+        | "entertainment"
+        | "shopping"
+        | "bills"
+        | "health"
+        | "education"
+        | "travel"
+        | "other"
+      payment_method: "upi" | "cash" | "card" | "bank_transfer" | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -185,6 +234,19 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      expense_category: [
+        "food",
+        "transport",
+        "entertainment",
+        "shopping",
+        "bills",
+        "health",
+        "education",
+        "travel",
+        "other",
+      ],
+      payment_method: ["upi", "cash", "card", "bank_transfer", "other"],
+    },
   },
 } as const

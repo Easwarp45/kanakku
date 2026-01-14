@@ -1,0 +1,238 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import type { Expense, CreateExpenseInput, UpdateExpenseInput, ExpenseCategory, PaymentMethod } from '@/types/expense';
+import { toast } from 'sonner';
+
+export function useExpenses(filters?: { startDate?: string; endDate?: string; category?: ExpenseCategory }) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['expenses', user?.id, filters],
+    queryFn: async () => {
+      if (!user) return [];
+
+      let query = supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('expense_date', { ascending: false });
+
+      if (filters?.startDate) {
+        query = query.gte('expense_date', filters.startDate);
+      }
+      if (filters?.endDate) {
+        query = query.lte('expense_date', filters.endDate);
+      }
+      if (filters?.category) {
+        query = query.eq('category', filters.category);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      return (data || []).map(expense => ({
+        ...expense,
+        amount: Number(expense.amount),
+        category: expense.category as ExpenseCategory,
+        payment_method: expense.payment_method as PaymentMethod,
+      })) as Expense[];
+    },
+    enabled: !!user,
+  });
+}
+
+export function useExpense(id: string | undefined) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['expense', id],
+    queryFn: async () => {
+      if (!id || !user) return null;
+
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) return null;
+
+      return {
+        ...data,
+        amount: Number(data.amount),
+        category: data.category as ExpenseCategory,
+        payment_method: data.payment_method as PaymentMethod,
+      } as Expense;
+    },
+    enabled: !!id && !!user,
+  });
+}
+
+export function useRecentExpenses(limit: number = 5) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['expenses', 'recent', user?.id, limit],
+    queryFn: async () => {
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('expense_date', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+
+      return (data || []).map(expense => ({
+        ...expense,
+        amount: Number(expense.amount),
+        category: expense.category as ExpenseCategory,
+        payment_method: expense.payment_method as PaymentMethod,
+      })) as Expense[];
+    },
+    enabled: !!user,
+  });
+}
+
+export function useCreateExpense() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: CreateExpenseInput) => {
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert({
+          user_id: user.id,
+          amount: input.amount,
+          category: input.category,
+          description: input.description || null,
+          payment_method: input.payment_method,
+          expense_date: input.expense_date,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      toast.success('Expense added successfully');
+    },
+    onError: (error) => {
+      toast.error('Failed to add expense: ' + error.message);
+    },
+  });
+}
+
+export function useUpdateExpense() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...input }: UpdateExpenseInput) => {
+      const { data, error } = await supabase
+        .from('expenses')
+        .update({
+          amount: input.amount,
+          category: input.category,
+          description: input.description,
+          payment_method: input.payment_method,
+          expense_date: input.expense_date,
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['expense', data.id] });
+      toast.success('Expense updated successfully');
+    },
+    onError: (error) => {
+      toast.error('Failed to update expense: ' + error.message);
+    },
+  });
+}
+
+export function useDeleteExpense() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      toast.success('Expense deleted');
+    },
+    onError: (error) => {
+      toast.error('Failed to delete expense: ' + error.message);
+    },
+  });
+}
+
+export function useTodayTotal() {
+  const { user } = useAuth();
+  const today = new Date().toISOString().split('T')[0];
+
+  return useQuery({
+    queryKey: ['expenses', 'today-total', user?.id, today],
+    queryFn: async () => {
+      if (!user) return 0;
+
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('amount')
+        .eq('user_id', user.id)
+        .eq('expense_date', today);
+
+      if (error) throw error;
+
+      return (data || []).reduce((sum, exp) => sum + Number(exp.amount), 0);
+    },
+    enabled: !!user,
+  });
+}
+
+export function useMonthlyTotal() {
+  const { user } = useAuth();
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+  return useQuery({
+    queryKey: ['expenses', 'monthly-total', user?.id, startOfMonth],
+    queryFn: async () => {
+      if (!user) return 0;
+
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('amount')
+        .eq('user_id', user.id)
+        .gte('expense_date', startOfMonth)
+        .lte('expense_date', endOfMonth);
+
+      if (error) throw error;
+
+      return (data || []).reduce((sum, exp) => sum + Number(exp.amount), 0);
+    },
+    enabled: !!user,
+  });
+}
