@@ -5,7 +5,7 @@ import { useRecentExpenses, useTodayTotal, useMonthlyTotal } from '@/hooks/useEx
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import BottomNav from '@/components/layout/BottomNav';
-import { LogOut, Plus, Users, TrendingUp, IndianRupee } from 'lucide-react';
+import { LogOut, Plus, Users, TrendingUp, IndianRupee, Smartphone } from 'lucide-react';
 import { CATEGORY_CONFIG } from '@/types/expense';
 import { cn } from '@/lib/utils';
 
@@ -95,14 +95,22 @@ export default function Dashboard() {
         </Card>
 
         {/* Quick actions */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-2">
           <Button
             variant="outline"
             className="flex h-auto flex-col gap-2 py-4"
             onClick={() => navigate('/add-expense')}
           >
             <Plus className="h-5 w-5 text-primary" />
-            <span className="text-xs">Add Expense</span>
+            <span className="text-xs">Add</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="flex h-auto flex-col gap-2 py-4"
+            onClick={() => navigate('/upi')}
+          >
+            <Smartphone className="h-5 w-5 text-green-600" />
+            <span className="text-xs">UPI</span>
           </Button>
           <Button
             variant="outline"
@@ -110,7 +118,7 @@ export default function Dashboard() {
             onClick={() => navigate('/groups')}
           >
             <Users className="h-5 w-5 text-secondary-foreground" />
-            <span className="text-xs">Split Bill</span>
+            <span className="text-xs">Split</span>
           </Button>
           <Button
             variant="outline"
@@ -118,7 +126,7 @@ export default function Dashboard() {
             onClick={() => navigate('/analytics')}
           >
             <TrendingUp className="h-5 w-5 text-accent-foreground" />
-            <span className="text-xs">Analytics</span>
+            <span className="text-xs">Stats</span>
           </Button>
         </div>
 

@@ -14,6 +14,7 @@ import Dashboard from "./pages/Dashboard";
 import AddExpense from "./pages/AddExpense";
 import Expenses from "./pages/Expenses";
 import ExpenseDetail from "./pages/ExpenseDetail";
+import UPIIntegration from "./pages/UPIIntegration";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -61,6 +62,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ExpenseDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/upi"
+              element={
+                <ProtectedRoute>
+                  <UPIIntegration />
                 </ProtectedRoute>
               }
             />
