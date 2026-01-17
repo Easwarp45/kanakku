@@ -1,0 +1,269 @@
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { format } from 'date-fns';
+import { ArrowLeft, IndianRupee, Calendar, Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Switch } from '@/components/ui/switch';
+import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useGroupMembers, useAddGroupExpense } from '@/hooks/useGroups';
+import { useAuth } from '@/hooks/useAuth';
+import { CATEGORY_CONFIG, type ExpenseCategory } from '@/types/expense';
+import { cn } from '@/lib/utils';
+
+export default function AddGroupExpense() {
+  const navigate = useNavigate();
+  const { id: groupId } = useParams();
+  const { user } = useAuth();
+  const { data: members = [] } = useGroupMembers(groupId);
+  const addExpense = useAddGroupExpense();
+
+  const [amount, setAmount] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState<ExpenseCategory>('food');
+  const [date, setDate] = useState<Date>(new Date());
+  const [isCustomSplit, setIsCustomSplit] = useState(false);
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
+
+  // Initialize selected members with all members
+  useState(() => {
+    if (members.length > 0) {
+      setSelectedMembers(members.map(m => m.user_id));
+    }
+  });
+
+  const parsedAmount = parseFloat(amount) || 0;
+  const selectedCount = selectedMembers.length;
+  const equalShare = selectedCount > 0 ? parsedAmount / selectedCount : 0;
+
+  const customTotal = Object.values(customAmounts).reduce(
+    (sum, val) => sum + (parseFloat(val) || 0), 
+    0
+  );
+
+  const handleMemberToggle = (userId: string) => {
+    setSelectedMembers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const handleCustomAmountChange = (userId: string, value: string) => {
+    setCustomAmounts(prev => ({ ...prev, [userId]: value }));
+  };
+
+  const handleSubmit = async () => {
+    if (!groupId || !parsedAmount || !description.trim() || selectedCount === 0) return;
+
+    const splits = selectedMembers.map(userId => ({
+      user_id: userId,
+      amount: isCustomSplit 
+        ? parseFloat(customAmounts[userId] || '0') 
+        : equalShare,
+    }));
+
+    await addExpense.mutateAsync({
+      group_id: groupId,
+      amount: parsedAmount,
+      description: description.trim(),
+      category,
+      expense_date: format(date, 'yyyy-MM-dd'),
+      split_type: isCustomSplit ? 'custom' : 'equal',
+      splits,
+    });
+
+    navigate(`/groups/${groupId}`);
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="sticky top-0 z-10 bg-background border-b px-4 py-3">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-semibold">Add Group Expense</h1>
+        </div>
+      </header>
+
+      <div className="p-4 space-y-6">
+        {/* Amount */}
+        <div className="space-y-2">
+          <Label htmlFor="amount">Amount</Label>
+          <div className="relative">
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              id="amount"
+              type="number"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="pl-10 text-2xl font-semibold h-14"
+              min="0.01"
+              step="0.01"
+            />
+          </div>
+        </div>
+
+        {/* Description */}
+        <div className="space-y-2">
+          <Label htmlFor="description">Description</Label>
+          <Textarea
+            id="description"
+            placeholder="What was this expense for?"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+          />
+        </div>
+
+        {/* Category */}
+        <div className="space-y-2">
+          <Label>Category</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {(Object.entries(CATEGORY_CONFIG) as [ExpenseCategory, typeof CATEGORY_CONFIG[ExpenseCategory]][]).map(
+              ([key, config]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setCategory(key)}
+                  className={cn(
+                    'flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-colors',
+                    category === key
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border hover:border-muted-foreground/30'
+                  )}
+                >
+                  <div className={cn('w-8 h-8 rounded-full flex items-center justify-center text-white text-sm', config.color)}>
+                    {config.label.charAt(0)}
+                  </div>
+                  <span className="text-xs text-center">{config.label}</span>
+                </button>
+              )
+            )}
+          </div>
+        </div>
+
+        {/* Date */}
+        <div className="space-y-2">
+          <Label>Date</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full justify-start text-left font-normal">
+                <Calendar className="mr-2 h-4 w-4" />
+                {format(date, 'PPP')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="single"
+                selected={date}
+                onSelect={(d) => d && setDate(d)}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Split Options */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-muted-foreground" />
+              <Label>Split Between</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="custom-split" className="text-sm">Custom amounts</Label>
+              <Switch
+                id="custom-split"
+                checked={isCustomSplit}
+                onCheckedChange={setIsCustomSplit}
+              />
+            </div>
+          </div>
+
+          <Card>
+            <CardContent className="p-0 divide-y">
+              {members.map((member) => {
+                const isSelected = selectedMembers.includes(member.user_id);
+                const displayName = member.nickname || member.profile?.display_name || 'Unknown';
+                const isCurrentUser = member.user_id === user?.id;
+
+                return (
+                  <div key={member.id} className="flex items-center gap-3 p-4">
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => handleMemberToggle(member.user_id)}
+                    />
+                    <div className="flex-1">
+                      <span className="font-medium">{displayName}</span>
+                      {isCurrentUser && (
+                        <span className="text-xs text-muted-foreground ml-2">(You)</span>
+                      )}
+                    </div>
+                    {isSelected && (
+                      isCustomSplit ? (
+                        <div className="relative w-24">
+                          <IndianRupee className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            value={customAmounts[member.user_id] || ''}
+                            onChange={(e) => handleCustomAmountChange(member.user_id, e.target.value)}
+                            className="h-8 pl-6 text-sm"
+                            placeholder="0"
+                          />
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground flex items-center">
+                          <IndianRupee className="h-3 w-3" />
+                          {equalShare.toFixed(2)}
+                        </span>
+                      )
+                    )}
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          {isCustomSplit && parsedAmount > 0 && (
+            <p className={cn(
+              'text-sm',
+              Math.abs(customTotal - parsedAmount) < 0.01 ? 'text-green-600' : 'text-red-600'
+            )}>
+              {Math.abs(customTotal - parsedAmount) < 0.01 
+                ? '✓ Amounts match total'
+                : `₹${(parsedAmount - customTotal).toFixed(2)} remaining`
+              }
+            </p>
+          )}
+        </div>
+
+        {/* Submit */}
+        <Button
+          onClick={handleSubmit}
+          className="w-full h-12 text-lg"
+          disabled={
+            !parsedAmount || 
+            !description.trim() || 
+            selectedCount === 0 ||
+            (isCustomSplit && Math.abs(customTotal - parsedAmount) > 0.01) ||
+            addExpense.isPending
+          }
+        >
+          {addExpense.isPending ? 'Adding...' : 'Add Expense'}
+        </Button>
+      </div>
+    </div>
+  );
+}
