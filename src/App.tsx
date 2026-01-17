@@ -15,6 +15,10 @@ import AddExpense from "./pages/AddExpense";
 import Expenses from "./pages/Expenses";
 import ExpenseDetail from "./pages/ExpenseDetail";
 import UPIIntegration from "./pages/UPIIntegration";
+import Groups from "./pages/Groups";
+import GroupDetail from "./pages/GroupDetail";
+import AddGroupExpense from "./pages/AddGroupExpense";
+import SettleUp from "./pages/SettleUp";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -70,6 +74,38 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <UPIIntegration />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/groups"
+              element={
+                <ProtectedRoute>
+                  <Groups />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/groups/:id"
+              element={
+                <ProtectedRoute>
+                  <GroupDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/groups/:id/add-expense"
+              element={
+                <ProtectedRoute>
+                  <AddGroupExpense />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/groups/:id/settle"
+              element={
+                <ProtectedRoute>
+                  <SettleUp />
                 </ProtectedRoute>
               }
             />
