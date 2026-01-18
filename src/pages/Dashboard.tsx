@@ -5,7 +5,7 @@ import { useRecentExpenses, useTodayTotal, useMonthlyTotal } from '@/hooks/useEx
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import BottomNav from '@/components/layout/BottomNav';
-import { LogOut, Plus, Users, TrendingUp, IndianRupee, Smartphone } from 'lucide-react';
+import { LogOut, Plus, Users, TrendingUp, IndianRupee, Smartphone, Target } from 'lucide-react';
 import { CATEGORY_CONFIG } from '@/types/expense';
 import { cn } from '@/lib/utils';
 
@@ -88,14 +88,18 @@ export default function Dashboard() {
             <div className="h-2 rounded-full bg-muted">
               <div className="h-2 w-1/3 rounded-full bg-primary" />
             </div>
-            <p className="text-sm text-muted-foreground">
-              No budget set. Tap to create one.
-            </p>
+            <Button 
+              variant="link" 
+              className="text-sm p-0 h-auto" 
+              onClick={() => navigate('/budget')}
+            >
+              Set a budget to track your spending →
+            </Button>
           </CardContent>
         </Card>
 
         {/* Quick actions */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-5 gap-2">
           <Button
             variant="outline"
             className="flex h-auto flex-col gap-2 py-4"
@@ -123,9 +127,17 @@ export default function Dashboard() {
           <Button
             variant="outline"
             className="flex h-auto flex-col gap-2 py-4"
+            onClick={() => navigate('/budget')}
+          >
+            <Target className="h-5 w-5 text-accent" />
+            <span className="text-xs">Budget</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="flex h-auto flex-col gap-2 py-4"
             onClick={() => navigate('/analytics')}
           >
-            <TrendingUp className="h-5 w-5 text-accent-foreground" />
+            <TrendingUp className="h-5 w-5 text-primary" />
             <span className="text-xs">Stats</span>
           </Button>
         </div>
