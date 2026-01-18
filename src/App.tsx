@@ -19,6 +19,7 @@ import Groups from "./pages/Groups";
 import GroupDetail from "./pages/GroupDetail";
 import AddGroupExpense from "./pages/AddGroupExpense";
 import SettleUp from "./pages/SettleUp";
+import Analytics from "./pages/Analytics";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -106,6 +107,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <SettleUp />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/analytics"
+              element={
+                <ProtectedRoute>
+                  <Analytics />
                 </ProtectedRoute>
               }
             />
