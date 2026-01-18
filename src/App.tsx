@@ -20,6 +20,7 @@ import GroupDetail from "./pages/GroupDetail";
 import AddGroupExpense from "./pages/AddGroupExpense";
 import SettleUp from "./pages/SettleUp";
 import Analytics from "./pages/Analytics";
+import Budget from "./pages/Budget";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -115,6 +116,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Analytics />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/budget"
+              element={
+                <ProtectedRoute>
+                  <Budget />
                 </ProtectedRoute>
               }
             />
