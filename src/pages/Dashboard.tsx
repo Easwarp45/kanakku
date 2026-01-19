@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
 import { useRecentExpenses, useTodayTotal, useMonthlyTotal } from '@/hooks/useExpenses';
+import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import BottomNav from '@/components/layout/BottomNav';
@@ -16,6 +17,9 @@ export default function Dashboard() {
   const { data: recentExpenses = [], isLoading: loadingRecent } = useRecentExpenses(5);
   const { data: todayTotal = 0 } = useTodayTotal();
   const { data: monthlyTotal = 0 } = useMonthlyTotal();
+
+  // Initialize offline sync
+  useOfflineSync();
 
   const handleSignOut = async () => {
     await signOut();

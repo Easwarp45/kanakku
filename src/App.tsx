@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
+import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 
 // Pages
 import Login from "./pages/Login";
@@ -21,14 +23,29 @@ import AddGroupExpense from "./pages/AddGroupExpense";
 import SettleUp from "./pages/SettleUp";
 import Analytics from "./pages/Analytics";
 import Budget from "./pages/Budget";
+import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 30, // 30 minutes (formerly cacheTime)
+      retry: (failureCount, error) => {
+        // Don't retry if offline
+        if (!navigator.onLine) return false;
+        return failureCount < 3;
+      },
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
+        <OfflineIndicator />
+        <InstallPrompt />
         <Toaster />
         <Sonner />
         <BrowserRouter>
@@ -37,6 +54,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/install" element={<Install />} />
 
             {/* Protected routes */}
             <Route
