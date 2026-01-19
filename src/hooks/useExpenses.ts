@@ -108,6 +108,14 @@ export function useCreateExpense() {
     mutationFn: async (input: CreateExpenseInput) => {
       if (!user) throw new Error('Not authenticated');
 
+      // Check if offline
+      if (!navigator.onLine) {
+        // Import dynamically to avoid circular dependencies
+        const { saveOfflineExpense } = await import('@/lib/offlineStorage');
+        const offlineExpense = saveOfflineExpense(input);
+        return { ...offlineExpense, offline: true };
+      }
+
       const { data, error } = await supabase
         .from('expenses')
         .insert({
@@ -124,9 +132,13 @@ export function useCreateExpense() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      toast.success('Expense added successfully');
+      if ((data as any).offline) {
+        toast.info('Expense saved offline. Will sync when online.');
+      } else {
+        toast.success('Expense added successfully');
+      }
     },
     onError: (error) => {
       toast.error('Failed to add expense: ' + error.message);
