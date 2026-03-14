@@ -6,7 +6,8 @@ import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import BottomNav from '@/components/layout/BottomNav';
-import { LogOut, Plus, Users, TrendingUp, IndianRupee, Smartphone, Target } from 'lucide-react';
+import { LogOut, Plus, Users, TrendingUp, IndianRupee, Smartphone, Target, Bell } from 'lucide-react';
+import { useNotifications } from '@/hooks/useNotifications';
 import { CATEGORY_CONFIG } from '@/types/expense';
 import { cn } from '@/lib/utils';
 
