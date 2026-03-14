@@ -11,8 +11,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useExpense, useUpdateExpense, useDeleteExpense } from '@/hooks/useExpenses';
+import { useAuth } from '@/hooks/useAuth';
 import { CATEGORY_CONFIG, PAYMENT_METHOD_CONFIG, type ExpenseCategory, type PaymentMethod } from '@/types/expense';
 import { cn } from '@/lib/utils';
+import { uploadReceipt } from '@/lib/receiptStorage';
+import { toast } from 'sonner';
 
 export default function ExpenseDetail() {
   const navigate = useNavigate();
@@ -20,6 +23,7 @@ export default function ExpenseDetail() {
   const { data: expense, isLoading } = useExpense(id);
   const updateExpense = useUpdateExpense();
   const deleteExpense = useDeleteExpense();
+  const { user } = useAuth();
 
   const [isEditing, setIsEditing] = useState(false);
   const [amount, setAmount] = useState('');
@@ -27,6 +31,9 @@ export default function ExpenseDetail() {
   const [description, setDescription] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('upi');
   const [date, setDate] = useState<Date>(new Date());
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [removeReceipt, setRemoveReceipt] = useState(false);
 
   useEffect(() => {
     if (expense) {
@@ -35,14 +42,67 @@ export default function ExpenseDetail() {
       setDescription(expense.description || '');
       setPaymentMethod(expense.payment_method);
       setDate(new Date(expense.expense_date));
+      setReceiptFile(null);
+      setRemoveReceipt(false);
     }
   }, [expense]);
+
+  useEffect(() => {
+    if (!receiptFile) {
+      setReceiptPreview(null);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(receiptFile);
+    setReceiptPreview(previewUrl);
+
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [receiptFile]);
+
+  const handleReceiptChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setReceiptFile(null);
+      return;
+    }
+
+    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+      toast.error('Only images or PDF receipts are supported.');
+      event.target.value = '';
+      return;
+    }
+
+    setReceiptFile(file);
+    setRemoveReceipt(false);
+  };
 
   const handleUpdate = async () => {
     if (!id) return;
 
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
+
+    if (receiptFile && !navigator.onLine) {
+      toast.error('Receipt upload requires an internet connection.');
+      return;
+    }
+
+    let receiptUrl: string | null | undefined;
+    if (receiptFile) {
+      if (!user) {
+        toast.error('You must be signed in to upload a receipt.');
+        return;
+      }
+
+      try {
+        receiptUrl = await uploadReceipt({ file: receiptFile, userId: user.id, expenseId: id });
+      } catch (error) {
+        toast.error('Failed to upload receipt. Please try again.');
+        return;
+      }
+    } else if (removeReceipt) {
+      receiptUrl = null;
+    }
 
     await updateExpense.mutateAsync({
       id,
@@ -51,6 +111,7 @@ export default function ExpenseDetail() {
       description: description.trim() || undefined,
       payment_method: paymentMethod,
       expense_date: format(date, 'yyyy-MM-dd'),
+      receipt_url: receiptUrl,
     });
 
     setIsEditing(false);
@@ -80,6 +141,7 @@ export default function ExpenseDetail() {
   }
 
   const config = CATEGORY_CONFIG[expense.category];
+  const isPdfReceipt = expense.receipt_url?.toLowerCase().includes('.pdf');
 
   if (!isEditing) {
     return (
@@ -155,6 +217,38 @@ export default function ExpenseDetail() {
               <p className="text-sm text-muted-foreground">Payment Method</p>
               <p className="font-medium">{PAYMENT_METHOD_CONFIG[expense.payment_method].label}</p>
             </div>
+
+            {expense.receipt_url && !isPdfReceipt && (
+              <div className="p-4 rounded-lg bg-muted/50 space-y-2">
+                <p className="text-sm text-muted-foreground">Receipt</p>
+                <img
+                  src={expense.receipt_url}
+                  alt="Receipt"
+                  className="w-full max-h-80 object-cover rounded-md"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(expense.receipt_url || '', '_blank', 'noreferrer')}
+                >
+                  View Full Size
+                </Button>
+              </div>
+            )}
+
+            {expense.receipt_url && isPdfReceipt && (
+              <div className="p-4 rounded-lg bg-muted/50 space-y-2">
+                <p className="text-sm text-muted-foreground">Receipt</p>
+                <a
+                  href={expense.receipt_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-primary underline"
+                >
+                  Open PDF
+                </a>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -269,6 +363,83 @@ export default function ExpenseDetail() {
               />
             </PopoverContent>
           </Popover>
+        </div>
+
+        {/* Receipt */}
+        <div className="space-y-2">
+          <Label htmlFor="receipt">Receipt (optional)</Label>
+          <Input
+            id="receipt"
+            type="file"
+            accept="image/*,application/pdf"
+            onChange={handleReceiptChange}
+          />
+          {expense.receipt_url && !removeReceipt && (
+            <div className="rounded-lg border p-3 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="truncate">Current receipt</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setRemoveReceipt(true)}
+                >
+                  Remove
+                </Button>
+              </div>
+              {expense.receipt_url.toLowerCase().includes('.pdf') ? (
+                <a
+                  href={expense.receipt_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-primary underline"
+                >
+                  Open PDF
+                </a>
+              ) : (
+                <img
+                  src={expense.receipt_url}
+                  alt="Receipt"
+                  className="w-full max-h-56 object-cover rounded-md"
+                />
+              )}
+            </div>
+          )}
+          {receiptFile && (
+            <div className="rounded-lg border p-3 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="truncate">{receiptFile.name}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setReceiptFile(null)}
+                >
+                  Remove
+                </Button>
+              </div>
+              {receiptPreview && receiptFile.type.startsWith('image/') && (
+                <img
+                  src={receiptPreview}
+                  alt="Receipt preview"
+                  className="w-full max-h-56 object-cover rounded-md"
+                />
+              )}
+              {receiptPreview && receiptFile.type === 'application/pdf' && (
+                <a
+                  href={receiptPreview}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-primary underline"
+                >
+                  Preview PDF
+                </a>
+              )}
+            </div>
+          )}
+          {removeReceipt && (
+            <p className="text-sm text-muted-foreground">Receipt will be removed on save.</p>
+          )}
         </div>
 
         {/* Save */}

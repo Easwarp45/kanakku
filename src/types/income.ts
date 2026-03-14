@@ -27,6 +27,10 @@ export interface CreateIncomeInput {
   is_recurring?: boolean;
 }
 
+export interface UpdateIncomeInput extends Partial<CreateIncomeInput> {
+  id: string;
+}
+
 export const INCOME_SOURCE_CONFIG: Record<IncomeSource, { label: string; icon: string; color: string }> = {
   salary: { label: 'Salary', icon: 'Briefcase', color: 'bg-emerald-500' },
   freelance: { label: 'Freelance', icon: 'Laptop', color: 'bg-blue-500' },

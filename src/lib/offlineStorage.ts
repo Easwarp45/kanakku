@@ -60,18 +60,78 @@ export function clearSyncedExpenses(): void {
   localStorage.setItem(OFFLINE_EXPENSES_KEY, JSON.stringify(unsynced));
 }
 
-// Check if we're online
-export function isOnline(): boolean {
-  return navigator.onLine;
+// Check if we're online - improved with actual network check
+let lastOnlineStatus = navigator.onLine;
+let checkInProgress = false;
+
+async function verifyOnlineStatus(): Promise<boolean> {
+  // Skip if already checking
+  if (checkInProgress) return lastOnlineStatus;
+  
+  // First check: navigator.onLine (fast, unreliable)
+  if (!navigator.onLine) {
+    return false;
+  }
+
+  // Second check: Try actual network request to verify connectivity
+  try {
+    checkInProgress = true;
+    // Use a simple HEAD request to Supabase healthcheck (doesn't require auth)
+    const response = await fetch(
+      'https://www.google.com/favicon.ico',
+      { 
+        method: 'HEAD',
+        cache: 'no-store',
+        mode: 'no-cors'
+      }
+    );
+    lastOnlineStatus = true;
+    return true;
+  } catch {
+    lastOnlineStatus = false;
+    return false;
+  } finally {
+    checkInProgress = false;
+  }
 }
 
-// Listen for online/offline events
+export function isOnline(): boolean {
+  // Return cached status (will be updated by event listeners and periodic checks)
+  return lastOnlineStatus;
+}
+
+// Listen for online/offline events with improved detection
 export function setupOnlineListener(onOnline: () => void, onOffline: () => void): () => void {
-  window.addEventListener('online', onOnline);
-  window.addEventListener('offline', onOffline);
+  const handleOnline = async () => {
+    const isReallyOnline = await verifyOnlineStatus();
+    if (isReallyOnline && lastOnlineStatus) {
+      onOnline();
+    }
+  };
+
+  const handleOffline = () => {
+    lastOnlineStatus = false;
+    onOffline();
+  };
+
+  window.addEventListener('online', handleOnline);
+  window.addEventListener('offline', handleOffline);
+
+  // Periodic check every 10 seconds to catch changes missed by events
+  const intervalId = setInterval(async () => {
+    const wasOnline = lastOnlineStatus;
+    const isNowOnline = await verifyOnlineStatus();
+    
+    if (!wasOnline && isNowOnline) {
+      onOnline();
+    } else if (wasOnline && !isNowOnline) {
+      onOffline();
+    }
+  }, 10000);
 
   return () => {
-    window.removeEventListener('online', onOnline);
-    window.removeEventListener('offline', onOffline);
+    window.removeEventListener('online', handleOnline);
+    window.removeEventListener('offline', handleOffline);
+    clearInterval(intervalId);
   };
 }

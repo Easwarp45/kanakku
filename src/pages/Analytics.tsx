@@ -50,6 +50,8 @@ export default function Analytics() {
       `Analytics Report - ${period.charAt(0).toUpperCase() + period.slice(1)}`,
       '',
       `Total Spent: ${formatCurrency(analytics.totalSpent)}`,
+      `Total Income: ${formatCurrency(analytics.totalIncome)}`,
+      `Net Savings: ${formatCurrency(analytics.netSavings)}`,
       `Average per Day: ${formatCurrency(analytics.averagePerDay)}`,
       `Total Transactions: ${analytics.transactionCount}`,
       '',
@@ -196,6 +198,32 @@ export default function Analytics() {
                   </p>
                 </CardContent>
               </Card>
+
+              <Card className="bg-card">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Wallet className="h-4 w-4 text-secondary" />
+                    <span className="text-sm text-muted-foreground">Total Income</span>
+                  </div>
+                  <p className="text-2xl font-bold text-foreground">
+                    {formatCurrency(analytics.totalIncome)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">this {period}</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-card">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Target className="h-4 w-4 text-accent" />
+                    <span className="text-sm text-muted-foreground">Net Savings</span>
+                  </div>
+                  <p className={`text-2xl font-bold ${analytics.netSavings >= 0 ? 'text-secondary' : 'text-destructive'}`}>
+                    {formatCurrency(analytics.netSavings)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">income minus expenses</p>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Spending Trend Chart */}
@@ -338,6 +366,35 @@ export default function Analytics() {
                     No categories to display
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Income vs Expense */}
+            <Card className="bg-card">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Income vs Expense</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={[
+                      { label: 'Income', amount: analytics.totalIncome },
+                      { label: 'Expense', amount: analytics.totalSpent },
+                    ]}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 32%, 91%)" />
+                      <XAxis dataKey="label" tick={{ fontSize: 12, fill: 'hsl(215, 16%, 47%)' }} />
+                      <YAxis
+                        tick={{ fontSize: 12, fill: 'hsl(215, 16%, 47%)' }}
+                        tickFormatter={(value) => `₹${value >= 1000 ? (value / 1000).toFixed(0) + 'k' : value}`}
+                      />
+                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                      <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
+                        <Cell fill="hsl(160, 84%, 39%)" />
+                        <Cell fill="hsl(0, 84%, 60%)" />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </CardContent>
             </Card>
 

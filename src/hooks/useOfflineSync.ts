@@ -31,6 +31,7 @@ export function useOfflineSync() {
           description: expense.description || null,
           payment_method: expense.payment_method,
           expense_date: expense.expense_date,
+          receipt_url: expense.receipt_url || null,
         });
 
         if (!error) {

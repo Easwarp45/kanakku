@@ -35,6 +35,7 @@ export interface CreateExpenseInput {
   description?: string;
   payment_method: PaymentMethod;
   expense_date: string;
+  receipt_url?: string | null;
 }
 
 export interface UpdateExpenseInput extends Partial<CreateExpenseInput> {

@@ -25,13 +25,14 @@ export function useGroups() {
 
       const { data, error } = await supabase
         .from('groups')
-        .select('*')
+        .select('id,name,description,created_by,updated_at')
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
       return data as Group[];
     },
     enabled: !!user,
+    staleTime: 1000 * 60 * 10, // 10 minutes
   });
 }
 
@@ -46,7 +47,7 @@ export function useGroup(id: string | undefined) {
 
       const { data, error } = await supabase
         .from('groups')
-        .select('*')
+        .select('id,name,description,created_by,created_at,updated_at')
         .eq('id', id)
         .maybeSingle();
 
@@ -54,6 +55,7 @@ export function useGroup(id: string | undefined) {
       return data as Group | null;
     },
     enabled: !!id && !!user,
+    staleTime: 1000 * 60 * 15, // 15 minutes
   });
 }
 
@@ -64,29 +66,22 @@ export function useGroupMembers(groupId: string | undefined) {
     queryFn: async () => {
       if (!groupId) return [];
 
-      // First get members
+      // Fetch members with embedded profiles in single query (join)
       const { data: members, error: membersError } = await supabase
         .from('group_members')
-        .select('*')
+        .select('id,group_id,user_id,role,created_at,profiles(user_id,display_name,avatar_url)')
         .eq('group_id', groupId);
 
       if (membersError) throw membersError;
-      if (!members?.length) return [];
 
-      // Then get profiles for each member
-      const userIds = members.map(m => m.user_id);
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, display_name, avatar_url')
-        .in('user_id', userIds);
-
-      // Map profiles to members
-      return members.map(member => ({
+      // Map to match expected GroupMember structure
+      return (members || []).map(member => ({
         ...member,
-        profile: profiles?.find(p => p.user_id === member.user_id) || null,
+        profile: (member.profiles as any) || null,
       })) as GroupMember[];
     },
     enabled: !!groupId,
+    staleTime: 1000 * 60 * 10, // 10 minutes
   });
 }
 
@@ -99,7 +94,7 @@ export function useGroupExpenses(groupId: string | undefined) {
 
       const { data, error } = await supabase
         .from('group_expenses')
-        .select('*')
+        .select('id,group_id,user_id,amount,category,description,expense_date,split_type,created_at,updated_at')
         .eq('group_id', groupId)
         .order('expense_date', { ascending: false });
 
@@ -113,6 +108,7 @@ export function useGroupExpenses(groupId: string | undefined) {
       })) as GroupExpense[];
     },
     enabled: !!groupId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
 

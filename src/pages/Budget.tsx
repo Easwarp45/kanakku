@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, AlertTriangle, CheckCircle, Trash2, Edit2, X, Save } from 'lucide-react';
+import { ArrowLeft, Plus, AlertTriangle, CheckCircle, Trash2, Edit2, X, Save, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,22 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import BottomNav from '@/components/layout/BottomNav';
 import { useBudgetsWithSpent, useCreateBudget, useUpdateBudget, useDeleteBudget, BudgetWithSpent } from '@/hooks/useBudgets';
 import { CATEGORY_CONFIG, ExpenseCategory } from '@/types/expense';
-import { 
-  UtensilsCrossed, Car, Film, ShoppingBag, Receipt, 
-  Heart, GraduationCap, Plane, MoreHorizontal 
-} from 'lucide-react';
-
-const CATEGORY_ICONS: Record<ExpenseCategory, React.ElementType> = {
-  food: UtensilsCrossed,
-  transport: Car,
-  entertainment: Film,
-  shopping: ShoppingBag,
-  bills: Receipt,
-  health: Heart,
-  education: GraduationCap,
-  travel: Plane,
-  other: MoreHorizontal,
-};
+import { getCategoryIcon } from '@/lib/category-icons';
 
 export default function Budget() {
   const navigate = useNavigate();
@@ -222,7 +207,7 @@ export default function Budget() {
               <div className="space-y-3">
                 <h2 className="text-lg font-semibold text-foreground">Category Budgets</h2>
                 {budgets.map(budget => {
-                  const Icon = CATEGORY_ICONS[budget.category as ExpenseCategory] || MoreHorizontal;
+                  const Icon = getCategoryIcon(budget.category as ExpenseCategory);
                   const config = CATEGORY_CONFIG[budget.category as ExpenseCategory];
                   const isEditing = editingBudget?.id === budget.id;
 

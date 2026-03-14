@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { useRecentExpenses, useTodayTotal, useMonthlyTotal } from '@/hooks/useExpenses';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
@@ -9,6 +10,8 @@ import BottomNav from '@/components/layout/BottomNav';
 import { LogOut, Plus, Users, TrendingUp, IndianRupee, Smartphone, Target, Bell } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { CATEGORY_CONFIG } from '@/types/expense';
+import { getCategoryIcon } from '@/lib/category-icons';
+import { PageTransition, AnimatedCard, listContainerVariants, listItemVariants } from '@/lib/animations';
 import { cn } from '@/lib/utils';
 
 export default function Dashboard() {
@@ -30,7 +33,8 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <PageTransition>
+      <div className="min-h-screen bg-background pb-20">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 items-center justify-between px-4">
@@ -190,14 +194,15 @@ export default function Dashboard() {
               <CardContent className="p-0 divide-y">
                 {recentExpenses.map((expense) => {
                   const config = CATEGORY_CONFIG[expense.category];
+                  const IconComponent = getCategoryIcon(expense.category);
                   return (
                     <div
                       key={expense.id}
                       className="flex items-center gap-3 p-4 hover:bg-muted/50 cursor-pointer"
                       onClick={() => navigate(`/expenses/${expense.id}`)}
                     >
-                      <div className={cn('w-10 h-10 rounded-full flex items-center justify-center text-white', config.color)}>
-                        {config.label.charAt(0)}
+                      <div className={cn('w-10 h-10 rounded-full flex items-center justify-center text-white flex-shrink-0', config.color)}>
+                        <IconComponent className="h-5 w-5" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{expense.description || config.label}</p>
@@ -219,6 +224,7 @@ export default function Dashboard() {
       </main>
 
       <BottomNav />
-    </div>
+      </div>
+    </PageTransition>
   );
 }

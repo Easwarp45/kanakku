@@ -14,7 +14,7 @@ export function useExpenses(filters?: { startDate?: string; endDate?: string; ca
 
       let query = supabase
         .from('expenses')
-        .select('*')
+        .select('id,amount,category,description,payment_method,expense_date,updated_at')
         .eq('user_id', user.id)
         .order('expense_date', { ascending: false });
 
@@ -53,7 +53,7 @@ export function useExpense(id: string | undefined) {
 
       const { data, error } = await supabase
         .from('expenses')
-        .select('*')
+        .select('id,user_id,amount,category,description,payment_method,expense_date,receipt_url,created_at,updated_at')
         .eq('id', id)
         .eq('user_id', user.id)
         .maybeSingle();
@@ -69,6 +69,7 @@ export function useExpense(id: string | undefined) {
       } as Expense;
     },
     enabled: !!id && !!user,
+    staleTime: 1000 * 60 * 15, // 15 minutes – single item changes less frequently
   });
 }
 
@@ -82,7 +83,7 @@ export function useRecentExpenses(limit: number = 5) {
 
       const { data, error } = await supabase
         .from('expenses')
-        .select('*')
+        .select('id,amount,category,description,payment_method,expense_date')
         .eq('user_id', user.id)
         .order('expense_date', { ascending: false })
         .limit(limit);
@@ -97,6 +98,7 @@ export function useRecentExpenses(limit: number = 5) {
       })) as Expense[];
     },
     enabled: !!user,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
 
@@ -125,6 +127,7 @@ export function useCreateExpense() {
           description: input.description || null,
           payment_method: input.payment_method,
           expense_date: input.expense_date,
+          receipt_url: input.receipt_url || null,
         })
         .select()
         .single();
@@ -151,15 +154,18 @@ export function useUpdateExpense() {
 
   return useMutation({
     mutationFn: async ({ id, ...input }: UpdateExpenseInput) => {
+      const updates: Record<string, unknown> = {};
+
+      if (input.amount !== undefined) updates.amount = input.amount;
+      if (input.category !== undefined) updates.category = input.category;
+      if (input.description !== undefined) updates.description = input.description;
+      if (input.payment_method !== undefined) updates.payment_method = input.payment_method;
+      if (input.expense_date !== undefined) updates.expense_date = input.expense_date;
+      if (input.receipt_url !== undefined) updates.receipt_url = input.receipt_url;
+
       const { data, error } = await supabase
         .from('expenses')
-        .update({
-          amount: input.amount,
-          category: input.category,
-          description: input.description,
-          payment_method: input.payment_method,
-          expense_date: input.expense_date,
-        })
+        .update(updates)
         .eq('id', id)
         .select()
         .single();

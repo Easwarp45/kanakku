@@ -22,6 +22,8 @@ interface TrendData {
 
 interface AnalyticsData {
   totalSpent: number;
+  totalIncome: number;
+  netSavings: number;
   previousPeriodTotal: number;
   percentageChange: number;
   categoryBreakdown: CategoryBreakdown[];
@@ -71,10 +73,10 @@ export function useAnalytics(period: TimePeriod = 'month') {
           previousEndDate = endOfMonth(subMonths(now, 1));
       }
 
-      // Fetch current period expenses
+      // Fetch current period expenses (only columns needed for analytics)
       const { data: currentExpenses, error } = await supabase
         .from('expenses')
-        .select('*')
+        .select('category,amount,expense_date')
         .eq('user_id', user.id)
         .gte('expense_date', format(startDate, 'yyyy-MM-dd'))
         .lte('expense_date', format(endDate, 'yyyy-MM-dd'));
@@ -89,8 +91,20 @@ export function useAnalytics(period: TimePeriod = 'month') {
         .gte('expense_date', format(previousStartDate, 'yyyy-MM-dd'))
         .lte('expense_date', format(previousEndDate, 'yyyy-MM-dd'));
 
+      // Fetch current period income
+      const { data: currentIncome, error: incomeError } = await supabase
+        .from('income')
+        .select('amount')
+        .eq('user_id', user.id)
+        .gte('income_date', format(startDate, 'yyyy-MM-dd'))
+        .lte('income_date', format(endDate, 'yyyy-MM-dd'));
+
+      if (incomeError) throw incomeError;
+
       // Calculate totals
       const totalSpent = currentExpenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+      const totalIncome = currentIncome?.reduce((sum, i) => sum + Number(i.amount), 0) || 0;
+      const netSavings = totalIncome - totalSpent;
       const previousPeriodTotal = previousExpenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
       const percentageChange = previousPeriodTotal > 0 
         ? ((totalSpent - previousPeriodTotal) / previousPeriodTotal) * 100 
@@ -172,6 +186,8 @@ export function useAnalytics(period: TimePeriod = 'month') {
 
       return {
         totalSpent,
+        totalIncome,
+        netSavings,
         previousPeriodTotal,
         percentageChange,
         categoryBreakdown,
@@ -182,5 +198,6 @@ export function useAnalytics(period: TimePeriod = 'month') {
       };
     },
     enabled: !!user?.id,
+    staleTime: 1000 * 60 * 15, // 15 minutes - analytics data changes less frequently
   });
 }

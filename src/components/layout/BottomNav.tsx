@@ -1,10 +1,11 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Receipt, Users, BarChart3, User } from 'lucide-react';
+import { Home, Receipt, Users, BarChart3, User, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { to: '/dashboard', icon: Home, label: 'Home' },
   { to: '/expenses', icon: Receipt, label: 'Expenses' },
+  { to: '/income', icon: Wallet, label: 'Income' },
   { to: '/groups', icon: Users, label: 'Groups' },
   { to: '/analytics', icon: BarChart3, label: 'Analytics' },
   { to: '/profile', icon: User, label: 'Profile' },

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import type { Income, CreateIncomeInput, IncomeSource } from '@/types/income';
+import type { Income, CreateIncomeInput, UpdateIncomeInput, IncomeSource } from '@/types/income';
 import { toast } from 'sonner';
 
 export function useIncome(filters?: { startDate?: string; endDate?: string; source?: IncomeSource }) {
@@ -14,7 +14,7 @@ export function useIncome(filters?: { startDate?: string; endDate?: string; sour
 
       let query = supabase
         .from('income')
-        .select('*')
+        .select('id,amount,source,description,income_date,is_recurring,updated_at')
         .eq('user_id', user.id)
         .order('income_date', { ascending: false });
 
@@ -38,6 +38,36 @@ export function useIncome(filters?: { startDate?: string; endDate?: string; sour
       })) as Income[];
     },
     enabled: !!user,
+    staleTime: 1000 * 60 * 10, // 10 minutes
+  });
+}
+
+export function useIncomeRecord(id: string | undefined) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['income', id],
+    queryFn: async () => {
+      if (!id || !user) return null;
+
+      const { data, error } = await supabase
+        .from('income')
+        .select('id,user_id,amount,source,description,income_date,is_recurring,created_at,updated_at')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) return null;
+
+      return {
+        ...data,
+        amount: Number(data.amount),
+        source: data.source as IncomeSource,
+      } as Income;
+    },
+    enabled: !!id && !!user,
+    staleTime: 1000 * 60 * 15, // 15 minutes
   });
 }
 
@@ -71,6 +101,40 @@ export function useCreateIncome() {
     },
     onError: (error) => {
       toast.error('Failed to add income: ' + error.message);
+    },
+  });
+}
+
+export function useUpdateIncome() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...input }: UpdateIncomeInput) => {
+      const updates: Record<string, unknown> = {};
+
+      if (input.amount !== undefined) updates.amount = input.amount;
+      if (input.source !== undefined) updates.source = input.source;
+      if (input.description !== undefined) updates.description = input.description;
+      if (input.income_date !== undefined) updates.income_date = input.income_date;
+      if (input.is_recurring !== undefined) updates.is_recurring = input.is_recurring;
+
+      const { data, error } = await supabase
+        .from('income')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['income'] });
+      queryClient.invalidateQueries({ queryKey: ['income', data.id] });
+      toast.success('Income updated successfully');
+    },
+    onError: (error) => {
+      toast.error('Failed to update income: ' + error.message);
     },
   });
 }

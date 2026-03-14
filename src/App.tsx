@@ -7,7 +7,6 @@ import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
-import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { NotificationManager } from "@/components/notifications/NotificationManager";
 
 // Pages
@@ -29,18 +28,23 @@ import Install from "./pages/Install";
 import Profile from "./pages/Profile";
 import AddIncome from "./pages/AddIncome";
 import Income from "./pages/Income";
+import IncomeDetail from "./pages/IncomeDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      gcTime: 1000 * 60 * 30, // 30 minutes (formerly cacheTime)
+      staleTime: 1000 * 60 * 10, // 10 minutes default
+      gcTime: 1000 * 60 * 60, // 1 hour (formerly cacheTime) - keep cache longer
       retry: (failureCount, error) => {
-        // Don't retry if offline
+        // Don't retry if offline or auth error (401, 403)
         if (!navigator.onLine) return false;
-        return failureCount < 3;
+        const status = (error as any)?.status;
+        if (status === 401 || status === 403) return false;
+        return failureCount < 2; // Only retry twice max for speed
       },
+      refetchOnWindowFocus: false, // Don't refetch when window regains focus (saves bandwidth)
+      refetchOnReconnect: true, // Refetch when coming online
     },
   },
 });
@@ -51,7 +55,6 @@ const App = () => (
     <AuthProvider>
       <TooltipProvider>
         <OfflineIndicator />
-        <InstallPrompt />
         <NotificationManager />
         <Toaster />
         <Sonner />
@@ -93,6 +96,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Income />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/income/:id"
+              element={
+                <ProtectedRoute>
+                  <IncomeDetail />
                 </ProtectedRoute>
               }
             />

@@ -108,7 +108,8 @@ export default function Income() {
             return (
               <div
                 key={item.id}
-                className="flex items-center gap-3 p-4 hover:bg-muted/50"
+                className="flex items-center gap-3 p-4 hover:bg-muted/50 cursor-pointer"
+                onClick={() => navigate(`/income/${item.id}`)}
               >
                 <div className={cn('w-10 h-10 rounded-full flex items-center justify-center text-white', config.color)}>
                   {config.label.charAt(0)}
@@ -134,7 +135,10 @@ export default function Income() {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-destructive hover:text-destructive"
-                    onClick={() => setDeleteId(item.id)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setDeleteId(item.id);
+                    }}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

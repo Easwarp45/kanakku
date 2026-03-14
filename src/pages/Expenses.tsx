@@ -1,14 +1,21 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
-import { ArrowLeft, Search, Filter, Trash2, IndianRupee } from 'lucide-react';
+import { ArrowLeft, Search, Filter, Trash2, IndianRupee, Calendar, Plus } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useExpenses, useDeleteExpense } from '@/hooks/useExpenses';
 import { CATEGORY_CONFIG, type ExpenseCategory } from '@/types/expense';
+import { getCategoryIcon } from '@/lib/category-icons';
+import { EmptyState } from '@/components/empty-state/EmptyState';
+import { PageTransition, listContainerVariants, listItemVariants } from '@/lib/animations';
 import { cn } from '@/lib/utils';
+import type { DateRange } from 'react-day-picker';
 
 export default function Expenses() {
   const navigate = useNavigate();
@@ -17,8 +24,17 @@ export default function Expenses() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const now = new Date();
-  const startDate = format(startOfMonth(now), 'yyyy-MM-dd');
-  const endDate = format(endOfMonth(now), 'yyyy-MM-dd');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: startOfMonth(now),
+    to: endOfMonth(now),
+  });
+
+  const startDate = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined;
+  const endDate = dateRange?.to
+    ? format(dateRange.to, 'yyyy-MM-dd')
+    : dateRange?.from
+      ? format(dateRange.from, 'yyyy-MM-dd')
+      : undefined;
 
   const { data: expenses = [], isLoading } = useExpenses({
     startDate,
@@ -27,6 +43,17 @@ export default function Expenses() {
   });
 
   const deleteExpense = useDeleteExpense();
+
+  const dateRangeLabel = dateRange?.from
+    ? dateRange.to
+      ? `${format(dateRange.from, 'MMM d, yyyy')} - ${format(dateRange.to, 'MMM d, yyyy')}`
+      : format(dateRange.from, 'MMM d, yyyy')
+    : 'All time';
+
+  const resetToCurrentMonth = () => {
+    const current = new Date();
+    setDateRange({ from: startOfMonth(current), to: endOfMonth(current) });
+  };
 
   const filteredExpenses = expenses.filter((expense) => {
     if (!searchQuery) return true;
@@ -43,7 +70,8 @@ export default function Expenses() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <PageTransition>
+      <div className="min-h-screen bg-background pb-20">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background border-b px-4 py-3">
         <div className="flex items-center gap-3">
@@ -83,12 +111,38 @@ export default function Expenses() {
             </SelectContent>
           </Select>
         </div>
+        <div className="flex flex-wrap gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="flex-1 justify-start text-left font-normal">
+                <Calendar className="mr-2 h-4 w-4" />
+                {dateRangeLabel}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="range"
+                selected={dateRange}
+                onSelect={setDateRange}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+          <Button variant="outline" onClick={() => setDateRange(undefined)}>
+            All time
+          </Button>
+          <Button variant="outline" onClick={resetToCurrentMonth}>
+            This month
+          </Button>
+        </div>
       </div>
 
       {/* Summary */}
       <div className="p-4 border-b bg-muted/30">
         <div className="flex justify-between items-center">
-          <span className="text-sm text-muted-foreground">Total this month</span>
+          <span className="text-sm text-muted-foreground">
+            {dateRange?.from ? 'Total for selected range' : 'Total (all time)'}
+          </span>
           <div className="flex items-center text-xl font-bold">
             <IndianRupee className="h-5 w-5" />
             {totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -101,20 +155,29 @@ export default function Expenses() {
         {isLoading ? (
           <div className="p-8 text-center text-muted-foreground">Loading...</div>
         ) : filteredExpenses.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            No expenses found
+          <div className="p-4">
+            <EmptyState
+              icon={Plus}
+              title="No expenses found"
+              description="Start tracking your spending by adding your first expense."
+              action={{
+                label: 'Add Expense',
+                onClick: () => navigate('/add-expense'),
+              }}
+            />
           </div>
         ) : (
           filteredExpenses.map((expense) => {
             const config = CATEGORY_CONFIG[expense.category];
+            const IconComponent = getCategoryIcon(expense.category);
             return (
               <div
                 key={expense.id}
                 className="flex items-center gap-3 p-4 hover:bg-muted/50 cursor-pointer"
                 onClick={() => navigate(`/expenses/${expense.id}`)}
               >
-                <div className={cn('w-10 h-10 rounded-full flex items-center justify-center text-white', config.color)}>
-                  {config.label.charAt(0)}
+                <div className={cn('w-10 h-10 rounded-full flex items-center justify-center text-white flex-shrink-0', config.color)}>
+                  <IconComponent className="h-5 w-5" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{expense.description || config.label}</p>
@@ -160,6 +223,7 @@ export default function Expenses() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+      </div>
+    </PageTransition>
   );
 }
