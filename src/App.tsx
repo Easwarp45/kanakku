@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
@@ -25,6 +26,9 @@ import SettleUp from "./pages/SettleUp";
 import Analytics from "./pages/Analytics";
 import Budget from "./pages/Budget";
 import Install from "./pages/Install";
+import Profile from "./pages/Profile";
+import AddIncome from "./pages/AddIncome";
+import Income from "./pages/Income";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -43,6 +47,7 @@ const queryClient = new QueryClient({
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
     <AuthProvider>
       <TooltipProvider>
         <OfflineIndicator />
@@ -72,6 +77,22 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <AddExpense />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/add-income"
+              element={
+                <ProtectedRoute>
+                  <AddIncome />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/income"
+              element={
+                <ProtectedRoute>
+                  <Income />
                 </ProtectedRoute>
               }
             />
@@ -147,6 +168,14 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Redirect root to dashboard */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -157,6 +186,7 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
