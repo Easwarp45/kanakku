@@ -12,6 +12,7 @@ import type {
   SimplifiedDebt
 } from '@/types/group';
 import type { ExpenseCategory } from '@/types/expense';
+import { generateInviteCode, formatInviteCode } from '@/lib/invite-code';
 import { toast } from 'sonner';
 
 // Fetch all groups user is member of
@@ -25,7 +26,7 @@ export function useGroups() {
 
       const { data, error } = await supabase
         .from('groups')
-        .select('id,name,description,created_by,updated_at')
+        .select('id,name,description,created_by,invite_code,updated_at')
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
@@ -47,7 +48,7 @@ export function useGroup(id: string | undefined) {
 
       const { data, error } = await supabase
         .from('groups')
-        .select('id,name,description,created_by,created_at,updated_at')
+        .select('id,name,description,created_by,invite_code,created_at,updated_at')
         .eq('id', id)
         .maybeSingle();
 
@@ -245,28 +246,41 @@ export function useCreateGroup() {
     mutationFn: async (input: CreateGroupInput) => {
       if (!user) throw new Error('Not authenticated');
 
-      // Create group
+      // Generate invite code on frontend
+      const inviteCode = generateInviteCode();
+
+      // Create group with generated invite code
       const { data: group, error: groupError } = await supabase
         .from('groups')
         .insert({
           name: input.name,
           description: input.description || null,
           created_by: user.id,
+          invite_code: inviteCode,
         })
-        .select()
+        .select('id,name,description,image_url,created_by,invite_code,created_at,updated_at')
         .single();
 
-      if (groupError) throw groupError;
+      if (groupError) {
+        console.error('Create group error:', groupError);
+        throw new Error(`Failed to create group: ${groupError.message}`);
+      }
 
-      // Add creator as member
+      if (!group) throw new Error('Failed to create group: No response from server');
+
+      // Add creator as member with admin role
       const { error: memberError } = await supabase
         .from('group_members')
         .insert({
           group_id: group.id,
           user_id: user.id,
+          is_admin: true,
         });
 
-      if (memberError) throw memberError;
+      if (memberError) {
+        console.error('Add member error:', memberError);
+        throw new Error(`Failed to add you as member: ${memberError.message}`);
+      }
 
       return group as Group;
     },
@@ -289,15 +303,25 @@ export function useJoinGroup() {
     mutationFn: async (inviteCode: string) => {
       if (!user) throw new Error('Not authenticated');
 
-      // Find group
+      const cleanCode = formatInviteCode(inviteCode);
+
+      if (!cleanCode) throw new Error('Please enter an invite code');
+
+      // Find group by invite code
       const { data: group, error: findError } = await supabase
         .from('groups')
-        .select('id')
-        .eq('invite_code', inviteCode.toLowerCase().trim())
+        .select('id,name,description,image_url,created_by,invite_code,created_at,updated_at')
+        .eq('invite_code', cleanCode)
         .maybeSingle();
 
-      if (findError) throw findError;
-      if (!group) throw new Error('Invalid invite code');
+      if (findError) {
+        console.error('Find group error:', findError);
+        throw new Error(`Failed to find group: ${findError.message}`);
+      }
+
+      if (!group) {
+        throw new Error('Invalid invite code. Please check and try again.');
+      }
 
       // Join group
       const { error: joinError } = await supabase
@@ -305,23 +329,26 @@ export function useJoinGroup() {
         .insert({
           group_id: group.id,
           user_id: user.id,
+          is_admin: false,
         });
 
       if (joinError) {
+        console.error('Join group error:', joinError);
         if (joinError.code === '23505') {
           throw new Error('You are already a member of this group');
         }
-        throw joinError;
+        throw new Error(`Failed to join group: ${joinError.message}`);
       }
 
       return group;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['groups'] });
-      toast.success('Joined group!');
+      toast.success(`Joined group: ${data.name}!`);
     },
     onError: (error) => {
-      toast.error(error.message);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to join group';
+      toast.error(errorMessage);
     },
   });
 }
@@ -435,6 +462,121 @@ export function useLeaveGroup() {
     },
     onError: (error) => {
       toast.error('Failed to leave group: ' + error.message);
+    },
+  });
+}
+
+// Remove member from group (admin only)
+export function useRemoveGroupMember() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: { groupId: string; memberId: string }) => {
+      if (!user) throw new Error('Not authenticated');
+
+      // Check if current user is admin
+      const { data: adminCheck, error: adminError } = await supabase
+        .from('group_members')
+        .select('is_admin')
+        .eq('group_id', input.groupId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (adminError) throw adminError;
+      if (!adminCheck?.is_admin) throw new Error('Only group admins can remove members');
+
+      // Delete the member
+      const { error: deleteError } = await supabase
+        .from('group_members')
+        .delete()
+        .eq('group_id', input.groupId)
+        .eq('id', input.memberId);
+
+      if (deleteError) throw deleteError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['group-members'] });
+      toast.success('Member removed from group');
+    },
+    onError: (error) => {
+      const msg = error instanceof Error ? error.message : 'Failed to remove member';
+      toast.error(msg);
+    },
+  });
+}
+
+// Fetch group chat messages
+export function useGroupChats(groupId: string | undefined) {
+  return useQuery({
+    queryKey: ['group-chats', groupId],
+    queryFn: async () => {
+      if (!groupId) return [];
+
+      const { data, error } = await supabase
+        .from('group_chats')
+        .select(`
+          id,
+          group_id,
+          user_id,
+          message,
+          created_at,
+          updated_at,
+          profiles!group_chats_user_id_fkey(user_id,display_name,avatar_url)
+        `)
+        .eq('group_id', groupId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!groupId,
+    staleTime: 1000 * 30, // 30 seconds - refresh chat more frequently
+    refetchInterval: 2000, // Poll every 2 seconds for new messages
+  });
+}
+
+// Send group chat message
+export function useSendGroupChat() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: { groupId: string; message: string }) => {
+      if (!user) throw new Error('Not authenticated');
+      if (!input.message.trim()) throw new Error('Message cannot be empty');
+
+      // Check if user is group member
+      const { data: member, error: memberError } = await supabase
+        .from('group_members')
+        .select('id')
+        .eq('group_id', input.groupId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (memberError) throw memberError;
+      if (!member) throw new Error('You are not a member of this group');
+
+      // Insert message
+      const { data, error } = await supabase
+        .from('group_chats')
+        .insert({
+          group_id: input.groupId,
+          user_id: user.id,
+          message: input.message.trim(),
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['group-chats', variables.groupId] });
+    },
+    onError: (error) => {
+      const msg = error instanceof Error ? error.message : 'Failed to send message';
+      console.error('Chat error:', msg);
     },
   });
 }

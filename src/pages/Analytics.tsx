@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, TrendingUp, TrendingDown, Download, Calendar, Wallet, Receipt, Target } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PageTransition, staggerContainerVariants, staggerItemVariants, slideUpVariants } from '@/lib/animations';
+import { SkeletonCardLoader } from '@/components/ui/skeleton-loader';
 import BottomNav from '@/components/layout/BottomNav';
 import { useAnalytics, TimePeriod } from '@/hooks/useAnalytics';
 import { 
@@ -83,6 +86,7 @@ export default function Analytics() {
   };
 
   return (
+    <PageTransition>
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
@@ -123,11 +127,7 @@ export default function Analytics() {
 
       <div className="p-4 space-y-6">
         {isLoading ? (
-          <div className="space-y-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-32 bg-muted animate-pulse rounded-lg" />
-            ))}
-          </div>
+          <SkeletonCardLoader count={4} />
         ) : analytics ? (
           <>
             {/* Summary Cards */}
@@ -450,5 +450,6 @@ export default function Analytics() {
 
       <BottomNav />
     </div>
+    </PageTransition>
   );
 }

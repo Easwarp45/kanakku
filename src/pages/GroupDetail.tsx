@@ -11,20 +11,27 @@ import {
   ArrowRightLeft,
   Copy,
   Check,
-  LogOut
+  LogOut,
+  X,
+  Send,
+  MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { 
   useGroup, 
   useGroupMembers, 
   useGroupExpenses, 
   useGroupBalances,
-  useLeaveGroup
+  useLeaveGroup,
+  useRemoveGroupMember,
+  useGroupChats,
+  useSendGroupChat
 } from '@/hooks/useGroups';
 import { useAuth } from '@/hooks/useAuth';
 import { CATEGORY_CONFIG } from '@/types/expense';
@@ -38,12 +45,19 @@ export default function GroupDetail() {
   const { user } = useAuth();
   
   const { data: group, isLoading: loadingGroup } = useGroup(id);
-  const { data: members = [] } = useGroupMembers(id);
+  const { data: members = [], isLoading: loadingMembers } = useGroupMembers(id);
   const { data: expenses = [] } = useGroupExpenses(id);
   const { balances, simplifiedDebts } = useGroupBalances(id);
+  const { data: chats = [] } = useGroupChats(id);
   const leaveGroup = useLeaveGroup();
+  const removeGroupMember = useRemoveGroupMember();
+  const sendGroupChat = useSendGroupChat();
 
   const [copied, setCopied] = useState(false);
+  const [chatMessage, setChatMessage] = useState('');
+  const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
+
+  const isAdmin = group && user && group.created_by === user.id;
 
   const copyInviteCode = () => {
     if (group?.invite_code) {
@@ -61,10 +75,28 @@ export default function GroupDetail() {
     }
   };
 
+  const handleRemoveMember = async () => {
+    if (!id || !memberToRemove) return;
+    await removeGroupMember.mutateAsync({
+      groupId: id,
+      memberId: memberToRemove.id,
+    });
+    setMemberToRemove(null);
+  };
+
+  const handleSendMessage = async () => {
+    if (!id || !chatMessage.trim()) return;
+    await sendGroupChat.mutateAsync({
+      groupId: id,
+      message: chatMessage,
+    });
+    setChatMessage('');
+  };
+
   if (loadingGroup) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
+        <p className="text-muted-foreground">Loading group...</p>
       </div>
     );
   }
@@ -77,6 +109,7 @@ export default function GroupDetail() {
       </div>
     );
   }
+
 
   const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
   const myBalance = balances.find(b => b.user_id === user?.id)?.balance || 0;
@@ -290,39 +323,100 @@ export default function GroupDetail() {
 
         {/* Members Tab */}
         <TabsContent value="members" className="p-4 space-y-3">
-          <Card>
+          {/* Invite Code Section */}
+          <Card className="bg-primary/5 border-primary/20">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Invite Code</CardTitle>
-              <CardDescription>Share this code to add members</CardDescription>
+              <CardDescription>Share this code to add members to the group</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               <Button 
                 variant="outline" 
-                className="w-full font-mono text-lg gap-2"
+                className="w-full font-mono text-2xl tracking-widest font-bold gap-2 py-6 bg-background hover:bg-primary/10"
                 onClick={copyInviteCode}
               >
-                {group.invite_code}
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {group?.invite_code}
+                {copied ? (
+                  <Check className="h-5 w-5 text-green-600" />
+                ) : (
+                  <Copy className="h-5 w-5" />
+                )}
               </Button>
+              {copied && (
+                <p className="text-center text-sm text-green-600 font-medium animate-pulse">✓ Code copied!</p>
+              )}
             </CardContent>
           </Card>
 
-          {members.map((member) => (
-            <Card key={member.id}>
-              <CardContent className="p-4 flex items-center gap-3">
-                <Avatar>
-                  <AvatarFallback>
-                    {(member.nickname || member.profile?.display_name || 'U').charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <p className="font-medium">
-                    {member.nickname || member.profile?.display_name || 'Unknown'}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Joined {format(new Date(member.joined_at), 'MMM d, yyyy')}
-                  </p>
-                </div>
+          {/* Members List */}
+          <div className="space-y-2">
+            <h3 className="font-semibold text-sm px-2">Members ({members.length})</h3>
+            {loadingMembers ? (
+              <p className="text-sm text-muted-foreground px-2 py-4">Loading members...</p>
+            ) : (
+              members.map((member) => (
+                <Card key={member.id} className="hover:bg-muted/50 transition-colors">
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback>
+                        {(member.profile?.display_name || 'U').charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium">
+                        {member.profile?.display_name || 'Unknown User'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Joined {member.created_at ? format(new Date(member.created_at), 'MMM d, yyyy') : 'Recently'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {member.user_id === user?.id && (
+                        <Badge variant="secondary" className="text-xs">You</Badge>
+                      )}
+                      {member.user_id === group?.created_by && (
+                        <Badge className="text-xs">Admin</Badge>
+                      )}
+                      {isAdmin && member.user_id !== user?.id && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => setMemberToRemove({ 
+                                id: member.id, 
+                                name: member.profile?.display_name || 'Unknown' 
+                              })}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remove Member</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to remove {memberToRemove?.name} from the group?
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={handleRemoveMember}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Remove
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
                 {member.user_id === user?.id && (
                   <Badge variant="secondary">You</Badge>
                 )}

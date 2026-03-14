@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ArrowLeft, Plus, Trash2, IndianRupee, RefreshCw } from 'lucide-react';
@@ -9,6 +9,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { useIncome, useDeleteIncome } from '@/hooks/useIncome';
 import { INCOME_SOURCE_CONFIG, type IncomeSource } from '@/types/income';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { RefreshIndicator } from '@/components/ui/refresh-indicator';
+import { SkeletonListLoader } from '@/components/ui/skeleton-loader';
+import { PageTransition } from '@/lib/animations';
 import { cn } from '@/lib/utils';
 import BottomNav from '@/components/layout/BottomNav';
 
@@ -21,13 +25,23 @@ export default function Income() {
   const startDate = format(startOfMonth(now), 'yyyy-MM-dd');
   const endDate = format(endOfMonth(now), 'yyyy-MM-dd');
 
-  const { data: incomeRecords = [], isLoading } = useIncome({
+  const { data: incomeRecords = [], isLoading, refetch } = useIncome({
     startDate,
     endDate,
     source: sourceFilter === 'all' ? undefined : sourceFilter,
   });
 
   const deleteIncome = useDeleteIncome();
+
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
+
+  const { containerRef, isRefreshing, translateY } = usePullToRefresh({
+    threshold: 60,
+    onRefresh: handleRefresh,
+  });
 
   const totalIncome = incomeRecords.reduce((sum, item) => sum + item.amount, 0);
 
@@ -39,7 +53,10 @@ export default function Income() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <PageTransition>
+      <div ref={containerRef} className="min-h-screen bg-background pb-20 overflow-y-auto" style={{ transform: `translateY(${translateY * 0.5}px)` }}>
+      {/* Refresh Indicator */}
+      <RefreshIndicator translateY={translateY} isRefreshing={isRefreshing} threshold={60} />
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background border-b px-4 py-3">
         <div className="flex items-center justify-between">
@@ -87,7 +104,9 @@ export default function Income() {
       {/* Income List */}
       <div className="divide-y">
         {isLoading ? (
-          <div className="p-8 text-center text-muted-foreground">Loading...</div>
+          <div className="p-4">
+            <SkeletonListLoader count={5} />
+          </div>
         ) : incomeRecords.length === 0 ? (
           <Card className="m-4">
             <CardContent className="flex flex-col items-center justify-center py-12 text-center">
@@ -169,5 +188,6 @@ export default function Income() {
 
       <BottomNav />
     </div>
+    </PageTransition>
   );
 }

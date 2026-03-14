@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 import { NotificationManager } from "@/components/notifications/NotificationManager";
+import { Onboarding } from "@/components/onboarding/Onboarding";
 
 // Pages
 import Login from "./pages/Login";
@@ -56,6 +57,7 @@ const App = () => (
       <TooltipProvider>
         <OfflineIndicator />
         <NotificationManager />
+        <Onboarding />
         <Toaster />
         <Sonner />
         <BrowserRouter>

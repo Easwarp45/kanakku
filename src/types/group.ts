@@ -16,8 +16,11 @@ export interface GroupMember {
   group_id: string;
   user_id: string;
   nickname: string | null;
-  joined_at: string;
+  joined_at?: string;
+  created_at?: string;
+  is_admin?: boolean;
   profile?: {
+    user_id?: string;
     display_name: string | null;
     avatar_url: string | null;
   };
@@ -57,6 +60,20 @@ export interface Settlement {
   amount: number;
   note: string | null;
   settled_at: string;
+}
+
+export interface GroupChat {
+  id: string;
+  group_id: string;
+  user_id: string;
+  message: string;
+  created_at: string;
+  updated_at: string;
+  profiles?: {
+    user_id: string;
+    display_name: string | null;
+    avatar_url: string | null;
+  };
 }
 
 export interface CreateGroupInput {

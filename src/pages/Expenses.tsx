@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ArrowLeft, Search, Filter, Trash2, IndianRupee, Calendar, Plus } from 'lucide-react';
@@ -14,6 +14,9 @@ import { CATEGORY_CONFIG, type ExpenseCategory } from '@/types/expense';
 import { getCategoryIcon } from '@/lib/category-icons';
 import { EmptyState } from '@/components/empty-state/EmptyState';
 import { PageTransition, listContainerVariants, listItemVariants } from '@/lib/animations';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { RefreshIndicator } from '@/components/ui/refresh-indicator';
+import { SkeletonListLoader } from '@/components/ui/skeleton-loader';
 import { cn } from '@/lib/utils';
 import type { DateRange } from 'react-day-picker';
 
@@ -36,13 +39,23 @@ export default function Expenses() {
       ? format(dateRange.from, 'yyyy-MM-dd')
       : undefined;
 
-  const { data: expenses = [], isLoading } = useExpenses({
+  const { data: expenses = [], isLoading, refetch } = useExpenses({
     startDate,
     endDate,
     category: categoryFilter === 'all' ? undefined : categoryFilter,
   });
 
   const deleteExpense = useDeleteExpense();
+
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
+
+  const { containerRef, isRefreshing, translateY } = usePullToRefresh({
+    threshold: 60,
+    onRefresh: handleRefresh,
+  });
 
   const dateRangeLabel = dateRange?.from
     ? dateRange.to
@@ -71,7 +84,9 @@ export default function Expenses() {
 
   return (
     <PageTransition>
-      <div className="min-h-screen bg-background pb-20">
+      <div ref={containerRef} className="min-h-screen bg-background pb-20 overflow-y-auto" style={{ transform: `translateY(${translateY * 0.5}px)` }}>
+      {/* Refresh Indicator */}
+      <RefreshIndicator translateY={translateY} isRefreshing={isRefreshing} threshold={60} />
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background border-b px-4 py-3">
         <div className="flex items-center gap-3">
@@ -153,7 +168,9 @@ export default function Expenses() {
       {/* Expense List */}
       <div className="divide-y">
         {isLoading ? (
-          <div className="p-8 text-center text-muted-foreground">Loading...</div>
+          <div className="p-4">
+            <SkeletonListLoader count={5} />
+          </div>
         ) : filteredExpenses.length === 0 ? (
           <div className="p-4">
             <EmptyState
