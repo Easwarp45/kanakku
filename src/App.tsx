@@ -46,6 +46,7 @@ const App = () => (
       <TooltipProvider>
         <OfflineIndicator />
         <InstallPrompt />
+        <NotificationManager />
         <Toaster />
         <Sonner />
         <BrowserRouter>

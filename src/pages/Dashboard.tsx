@@ -40,9 +40,16 @@ export default function Dashboard() {
             </div>
             <span className="font-semibold">Kanakku</span>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleSignOut}>
-            <LogOut className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {permission !== 'granted' && (
+              <Button variant="ghost" size="icon" onClick={requestPermission} title="Enable notifications">
+                <Bell className="h-5 w-5" />
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" onClick={handleSignOut}>
+              <LogOut className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
       </header>
 
