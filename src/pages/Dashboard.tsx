@@ -22,6 +22,8 @@ export default function Dashboard() {
   // Initialize offline sync
   useOfflineSync();
 
+  const { permission, requestPermission } = useNotifications();
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
