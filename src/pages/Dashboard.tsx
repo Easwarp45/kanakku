@@ -6,7 +6,8 @@ import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import BottomNav from '@/components/layout/BottomNav';
-import { LogOut, Plus, Users, TrendingUp, IndianRupee, Smartphone, Target } from 'lucide-react';
+import { LogOut, Plus, Users, TrendingUp, IndianRupee, Smartphone, Target, Bell } from 'lucide-react';
+import { useNotifications } from '@/hooks/useNotifications';
 import { CATEGORY_CONFIG } from '@/types/expense';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +21,8 @@ export default function Dashboard() {
 
   // Initialize offline sync
   useOfflineSync();
+
+  const { permission, requestPermission } = useNotifications();
 
   const handleSignOut = async () => {
     await signOut();
@@ -37,9 +40,16 @@ export default function Dashboard() {
             </div>
             <span className="font-semibold">Kanakku</span>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleSignOut}>
-            <LogOut className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {permission !== 'granted' && (
+              <Button variant="ghost" size="icon" onClick={requestPermission} title="Enable notifications">
+                <Bell className="h-5 w-5" />
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" onClick={handleSignOut}>
+              <LogOut className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
       </header>
 
