@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ArrowLeft, IndianRupee, Calendar, Users } from 'lucide-react';
@@ -32,11 +32,11 @@ export default function AddGroupExpense() {
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
 
   // Initialize selected members with all members
-  useState(() => {
-    if (members.length > 0) {
+  useEffect(() => {
+    if (members.length > 0 && selectedMembers.length === 0) {
       setSelectedMembers(members.map(m => m.user_id));
     }
-  });
+  }, [members, selectedMembers.length]);
 
   const parsedAmount = parseFloat(amount) || 0;
   const selectedCount = selectedMembers.length;

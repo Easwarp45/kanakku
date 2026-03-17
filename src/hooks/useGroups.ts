@@ -24,9 +24,26 @@ export function useGroups() {
     queryFn: async () => {
       if (!user) return [];
 
+      // First, get user's group IDs from group_members
+      const { data: userGroupIds, error: memberError } = await supabase
+        .from('group_members')
+        .select('group_id')
+        .eq('user_id', user.id);
+
+      if (memberError) {
+        console.error('Error fetching user group memberships:', memberError);
+        throw memberError;
+      }
+
+      if (!userGroupIds || userGroupIds.length === 0) return [];
+
+      const groupIds = userGroupIds.map(item => item.group_id);
+
+      // Then fetch only those groups
       const { data, error } = await supabase
         .from('groups')
         .select('id,name,description,created_by,invite_code,updated_at')
+        .in('id', groupIds)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
@@ -120,7 +137,7 @@ export function useGroupExpenses(groupId: string | undefined) {
 
       const { data, error } = await supabase
         .from('group_expenses')
-        .select('id,group_id,user_id,amount,category,description,expense_date,split_type,created_at,updated_at')
+        .select('id,group_id,paid_by,amount,category,description,expense_date,split_type,created_at,updated_at')
         .eq('group_id', groupId)
         .order('expense_date', { ascending: false });
 
