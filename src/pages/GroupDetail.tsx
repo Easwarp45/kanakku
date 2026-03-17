@@ -77,11 +77,16 @@ export default function GroupDetail() {
 
   const handleRemoveMember = async () => {
     if (!id || !memberToRemove) return;
-    await removeGroupMember.mutateAsync({
-      groupId: id,
-      memberId: memberToRemove.id,
-    });
-    setMemberToRemove(null);
+    try {
+      await removeGroupMember.mutateAsync({
+        groupId: id,
+        memberId: memberToRemove.id,
+      });
+      setMemberToRemove(null);
+    } catch (error) {
+      // Error is already handled by toast in mutation
+      console.error('Failed to remove member:', error);
+    }
   };
 
   const handleSendMessage = async () => {
@@ -359,12 +364,12 @@ export default function GroupDetail() {
                   <CardContent className="p-4 flex items-center gap-3">
                     <Avatar className="h-10 w-10">
                       <AvatarFallback>
-                        {(member.profile?.display_name || 'U').charAt(0).toUpperCase()}
+                        {(member.nickname || member.profile?.display_name || 'U').charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium">
-                        {member.profile?.display_name || 'Unknown User'}
+                        {member.nickname || member.profile?.display_name || `User ${member.user_id.slice(0, 8)}`}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Joined {member.created_at ? format(new Date(member.created_at), 'MMM d, yyyy') : 'Recently'}
@@ -386,7 +391,7 @@ export default function GroupDetail() {
                               className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                               onClick={() => setMemberToRemove({ 
                                 id: member.id, 
-                                name: member.profile?.display_name || 'Unknown' 
+                                name: member.nickname || member.profile?.display_name || `User ${member.user_id.slice(0, 8)}`
                               })}
                             >
                               <X className="h-4 w-4" />

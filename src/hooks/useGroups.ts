@@ -87,7 +87,7 @@ export function useGroupMembers(groupId: string | undefined) {
       // Fetch members - simpler query without nested profile relation
       const { data: members, error: membersError } = await supabase
         .from('group_members')
-        .select('id,group_id,user_id,is_admin,created_at')
+        .select('id,group_id,user_id,is_admin,nickname,created_at')
         .eq('group_id', groupId)
         .order('created_at', { ascending: true });
 
@@ -537,8 +537,11 @@ export function useRemoveGroupMember() {
 
       if (deleteError) throw deleteError;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['group-members'] });
+    onSuccess: (_data, variables) => {
+      // Invalidate the specific group's members list
+      queryClient.invalidateQueries({ queryKey: ['group-members', variables.groupId] });
+      // Also invalidate group balances since they depend on members
+      queryClient.invalidateQueries({ queryKey: ['group-balances', variables.groupId] });
       toast.success('Member removed from group');
     },
     onError: (error) => {
@@ -573,8 +576,8 @@ export function useGroupChats(groupId: string | undefined) {
       return data || [];
     },
     enabled: !!groupId,
-    staleTime: 1000 * 30, // 30 seconds - refresh chat more frequently
-    refetchInterval: 2000, // Poll every 2 seconds for new messages
+    staleTime: 1000 * 30, // 30 seconds
+    refetchInterval: 30000, // Poll every 30 seconds for new messages (reduced from 2s)
   });
 }
 
