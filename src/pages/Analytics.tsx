@@ -9,6 +9,8 @@ import { PageTransition, staggerContainerVariants, staggerItemVariants, slideUpV
 import { SkeletonCardLoader } from '@/components/ui/skeleton-loader';
 import BottomNav from '@/components/layout/BottomNav';
 import { useAnalytics, TimePeriod } from '@/hooks/useAnalytics';
+import { useSmartInsights } from '@/hooks/useSmartInsights';
+import { InsightsList } from '@/components/insights';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, BarChart, Bar
@@ -31,6 +33,7 @@ export default function Analytics() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<TimePeriod>('month');
   const { data: analytics, isLoading } = useAnalytics(period);
+  const { insights, isLoading: insightsLoading } = useSmartInsights();
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -446,6 +449,12 @@ export default function Analytics() {
             No analytics data available
           </div>
         )}
+      </div>
+
+      {/* Smart Insights Section */}
+      <div className="p-4 space-y-4">
+        <h2 className="text-lg font-semibold px-4">Financial Insights</h2>
+        <InsightsList insights={insights} isLoading={insightsLoading} />
       </div>
 
       <BottomNav />
