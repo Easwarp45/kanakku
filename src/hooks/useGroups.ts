@@ -67,22 +67,47 @@ export function useGroupMembers(groupId: string | undefined) {
     queryFn: async () => {
       if (!groupId) return [];
 
-      // Fetch members with embedded profiles in single query (join)
+      // Fetch members - simpler query without nested profile relation
       const { data: members, error: membersError } = await supabase
         .from('group_members')
-        .select('id,group_id,user_id,role,created_at,profiles(user_id,display_name,avatar_url)')
-        .eq('group_id', groupId);
+        .select('id,group_id,user_id,is_admin,created_at')
+        .eq('group_id', groupId)
+        .order('created_at', { ascending: true });
 
-      if (membersError) throw membersError;
+      if (membersError) {
+        console.error('Error fetching group members:', membersError);
+        throw membersError;
+      }
 
-      // Map to match expected GroupMember structure
-      return (members || []).map(member => ({
+      if (!members || members.length === 0) return [];
+
+      // Fetch profiles separately
+      const userIds = members.map(m => m.user_id);
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id,display_name,avatar_url')
+        .in('user_id', userIds);
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        // Continue without profiles rather than failing
+      }
+
+      // Map profiles by user_id for easy lookup
+      const profileMap = (profiles || []).reduce((acc, p) => {
+        acc[p.user_id] = p;
+        return acc;
+      }, {} as Record<string, any>);
+
+      // Combine members with their profiles
+      return members.map(member => ({
         ...member,
-        profile: (member.profiles as any) || null,
+        profile: profileMap[member.user_id] || null,
       })) as GroupMember[];
     },
     enabled: !!groupId,
-    staleTime: 1000 * 60 * 10, // 10 minutes
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 2,
   });
 }
 
@@ -307,17 +332,17 @@ export function useJoinGroup() {
 
       if (!cleanCode) throw new Error('Please enter an invite code');
 
-      // Find group by invite code
-      const { data: group, error: findError } = await supabase
-        .from('groups')
-        .select('id,name,description,image_url,created_by,invite_code,created_at,updated_at')
-        .eq('invite_code', cleanCode)
-        .maybeSingle();
+      // Find group by invite code using RPC function
+      // This bypasses RLS restrictions that prevent non-members from viewing groups
+      const { data: groups, error: findError } = await supabase
+        .rpc('get_group_by_invite_code', { code: cleanCode });
 
       if (findError) {
         console.error('Find group error:', findError);
         throw new Error(`Failed to find group: ${findError.message}`);
       }
+
+      const group = groups && groups.length > 0 ? groups[0] : null;
 
       if (!group) {
         throw new Error('Invalid invite code. Please check and try again.');
