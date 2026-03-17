@@ -84,46 +84,56 @@ export function useGroupMembers(groupId: string | undefined) {
     queryFn: async () => {
       if (!groupId) return [];
 
-      // Fetch members - simpler query without nested profile relation
-      const { data: members, error: membersError } = await supabase
-        .from('group_members')
-        .select('id,group_id,user_id,is_admin,nickname,created_at')
-        .eq('group_id', groupId)
-        .order('created_at', { ascending: true });
+      try {
+        // Fetch members - simpler query without nested profile relation
+        const { data: members, error: membersError } = await supabase
+          .from('group_members')
+          .select('id,group_id,user_id,is_admin,nickname,created_at')
+          .eq('group_id', groupId)
+          .order('created_at', { ascending: true });
 
-      if (membersError) {
-        console.error('Error fetching group members:', membersError);
-        throw membersError;
+        if (membersError) {
+          console.error('Error fetching group members:', membersError);
+          throw membersError;
+        }
+
+        if (!members || members.length === 0) return [];
+
+        // Fetch profiles separately with proper error handling
+        const userIds = members.map(m => m.user_id);
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('user_id,display_name,avatar_url')
+          .in('user_id', userIds);
+
+        if (profilesError) {
+          console.error('Error fetching profiles, some members may show without full display name:', profilesError);
+          // Continue without profiles rather than failing - profiles might not exist for all users
+        }
+
+        // Map profiles by user_id for easy lookup
+        const profileMap = (profiles || []).reduce((acc, p) => {
+          acc[p.user_id] = p;
+          return acc;
+        }, {} as Record<string, any>);
+
+        // Combine members with their profiles
+        const result = members.map(member => {
+          const profile = profileMap[member.user_id];
+          return {
+            ...member,
+            profile: profile || { user_id: member.user_id, display_name: null, avatar_url: null },
+          };
+        }) as GroupMember[];
+
+        return result;
+      } catch (error) {
+        console.error('Error in useGroupMembers:', error);
+        throw error;
       }
-
-      if (!members || members.length === 0) return [];
-
-      // Fetch profiles separately
-      const userIds = members.map(m => m.user_id);
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('user_id,display_name,avatar_url')
-        .in('user_id', userIds);
-
-      if (profilesError) {
-        console.error('Error fetching profiles:', profilesError);
-        // Continue without profiles rather than failing
-      }
-
-      // Map profiles by user_id for easy lookup
-      const profileMap = (profiles || []).reduce((acc, p) => {
-        acc[p.user_id] = p;
-        return acc;
-      }, {} as Record<string, any>);
-
-      // Combine members with their profiles
-      return members.map(member => ({
-        ...member,
-        profile: profileMap[member.user_id] || null,
-      })) as GroupMember[];
     },
     enabled: !!groupId,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 3, // 3 minutes - reduce to get fresher member data
     retry: 2,
   });
 }
@@ -538,10 +548,17 @@ export function useRemoveGroupMember() {
       if (deleteError) throw deleteError;
     },
     onSuccess: (_data, variables) => {
+      // Aggressively invalidate to ensure UI updates
       // Invalidate the specific group's members list
-      queryClient.invalidateQueries({ queryKey: ['group-members', variables.groupId] });
+      queryClient.invalidateQueries({ queryKey: ['group-members', variables.groupId], exact: false });
       // Also invalidate group balances since they depend on members
-      queryClient.invalidateQueries({ queryKey: ['group-balances', variables.groupId] });
+      queryClient.invalidateQueries({ queryKey: ['group-balances', variables.groupId], exact: false });
+      // Invalidate all groups to update missing member count
+      queryClient.invalidateQueries({ queryKey: ['groups'], exact: false });
+      
+      // Refetch member list immediately
+      queryClient.refetchQueries({ queryKey: ['group-members', variables.groupId] });
+      
       toast.success('Member removed from group');
     },
     onError: (error) => {
