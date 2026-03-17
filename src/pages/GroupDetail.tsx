@@ -417,15 +417,6 @@ export default function GroupDetail() {
               ))
             )}
           </div>
-                {member.user_id === user?.id && (
-                  <Badge variant="secondary">You</Badge>
-                )}
-                {member.user_id === group.created_by && (
-                  <Badge>Admin</Badge>
-                )}
-              </CardContent>
-            </Card>
-          ))}
         </TabsContent>
       </Tabs>
 
