@@ -9,7 +9,8 @@ import type {
   CreateGroupInput,
   CreateGroupExpenseInput,
   MemberBalance,
-  SimplifiedDebt
+  SimplifiedDebt,
+  ExpenseSplit
 } from '@/types/group';
 import type { ExpenseCategory } from '@/types/expense';
 import { generateInviteCode, formatInviteCode } from '@/lib/invite-code';
@@ -24,13 +25,27 @@ export function useGroups() {
     queryFn: async () => {
       if (!user) return [];
 
+      // Get groups where user is a member
       const { data, error } = await supabase
-        .from('groups')
-        .select('id,name,description,created_by,invite_code,updated_at')
-        .order('updated_at', { ascending: false });
+        .from('group_members')
+        .select('group_id')
+        .eq('user_id', user.id);
 
       if (error) throw error;
-      return data as Group[];
+
+      if (!data || data.length === 0) return [];
+
+      const groupIds = data.map(m => m.group_id);
+
+      // Fetch group details for member groups
+      const { data: groups, error: groupsError } = await supabase
+        .from('groups')
+        .select('id,name,description,created_by,invite_code,updated_at')
+        .in('id', groupIds)
+        .order('updated_at', { ascending: false });
+
+      if (groupsError) throw groupsError;
+      return groups as Group[];
     },
     enabled: !!user,
     staleTime: 1000 * 60 * 10, // 10 minutes
@@ -67,10 +82,10 @@ export function useGroupMembers(groupId: string | undefined) {
     queryFn: async () => {
       if (!groupId) return [];
 
-      // Fetch members - simpler query without nested profile relation
+      // Fetch members with nickname
       const { data: members, error: membersError } = await supabase
         .from('group_members')
-        .select('id,group_id,user_id,is_admin,created_at')
+        .select('id,group_id,user_id,nickname,is_admin,created_at')
         .eq('group_id', groupId)
         .order('created_at', { ascending: true });
 
@@ -99,10 +114,12 @@ export function useGroupMembers(groupId: string | undefined) {
         return acc;
       }, {} as Record<string, any>);
 
-      // Combine members with their profiles
+      // Combine members with their profiles, using nickname as fallback
       return members.map(member => ({
         ...member,
         profile: profileMap[member.user_id] || null,
+        // Add nickname as a field for easy access
+        displayName: member.nickname || profileMap[member.user_id]?.display_name || 'User ' + member.user_id.substring(0, 8),
       })) as GroupMember[];
     },
     enabled: !!groupId,
@@ -120,17 +137,47 @@ export function useGroupExpenses(groupId: string | undefined) {
 
       const { data, error } = await supabase
         .from('group_expenses')
-        .select('id,group_id,user_id,amount,category,description,expense_date,split_type,created_at,updated_at')
+        .select('id,group_id,paid_by,amount,category,description,expense_date,split_type,created_at,updated_at')
         .eq('group_id', groupId)
         .order('expense_date', { ascending: false });
 
       if (error) throw error;
+
+      if (!data || data.length === 0) return [];
+
+      // Fetch splits for these expenses
+      const expenseIds = data.map(e => e.id);
+      const { data: splits, error: splitsError } = await supabase
+        .from('expense_splits')
+        .select('*')
+        .in('group_expense_id', expenseIds);
+
+      if (splitsError) {
+        console.error('Error fetching splits:', splitsError);
+      }
+
+      // Map splits by expense ID
+      const splitsMap = (splits || []).reduce((acc, split) => {
+        if (!acc[split.group_expense_id]) {
+          acc[split.group_expense_id] = [];
+        }
+        acc[split.group_expense_id].push({
+          id: split.id,
+          group_expense_id: split.group_expense_id,
+          user_id: split.user_id,
+          amount: Number(split.amount),
+          is_settled: split.is_settled,
+          settled_at: split.settled_at,
+        } as ExpenseSplit);
+        return acc;
+      }, {} as Record<string, ExpenseSplit[]>);
 
       return (data || []).map(exp => ({
         ...exp,
         amount: Number(exp.amount),
         category: exp.category as ExpenseCategory,
         split_type: exp.split_type as 'equal' | 'custom',
+        splits: splitsMap[exp.id] || [],
       })) as GroupExpense[];
     },
     enabled: !!groupId,
@@ -602,6 +649,40 @@ export function useSendGroupChat() {
     onError: (error) => {
       const msg = error instanceof Error ? error.message : 'Failed to send message';
       console.error('Chat error:', msg);
+    },
+  });
+}
+
+// Update expense split settlement status
+export function useUpdateExpenseSplitStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      groupId: string;
+      groupExpenseId: string;
+      userId: string;
+      isSettled: boolean;
+    }) => {
+      const { error } = await supabase
+        .from('expense_splits')
+        .update({
+          is_settled: input.isSettled,
+          settled_at: input.isSettled ? new Date().toISOString() : null,
+        })
+        .eq('group_expense_id', input.groupExpenseId)
+        .eq('user_id', input.userId);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['group-expenses', variables.groupId] });
+      queryClient.invalidateQueries({ queryKey: ['expense-splits', variables.groupId] });
+      const statusText = variables.isSettled ? 'marked as paid' : 'marked as unpaid';
+      toast.success(`Expense ${statusText}`);
+    },
+    onError: (error) => {
+      toast.error('Failed to update: ' + error.message);
     },
   });
 }

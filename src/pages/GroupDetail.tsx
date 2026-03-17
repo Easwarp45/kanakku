@@ -11,6 +11,8 @@ import {
   ArrowRightLeft,
   Copy,
   Check,
+  CheckCircle,
+  Circle,
   LogOut,
   X,
   Send,
@@ -31,7 +33,8 @@ import {
   useLeaveGroup,
   useRemoveGroupMember,
   useGroupChats,
-  useSendGroupChat
+  useSendGroupChat,
+  useUpdateExpenseSplitStatus
 } from '@/hooks/useGroups';
 import { useAuth } from '@/hooks/useAuth';
 import { CATEGORY_CONFIG } from '@/types/expense';
@@ -52,6 +55,7 @@ export default function GroupDetail() {
   const leaveGroup = useLeaveGroup();
   const removeGroupMember = useRemoveGroupMember();
   const sendGroupChat = useSendGroupChat();
+  const updateSplitStatus = useUpdateExpenseSplitStatus();
 
   const [copied, setCopied] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
@@ -225,12 +229,12 @@ export default function GroupDetail() {
             expenses.map((expense) => {
               const config = CATEGORY_CONFIG[expense.category];
               const payer = members.find(m => m.user_id === expense.paid_by);
-              const payerName = payer?.nickname || payer?.profile?.display_name || 'Unknown';
+              const payerName = payer?.displayName || 'Unknown';
 
               return (
-                <Card key={expense.id}>
+                <Card key={expense.id} className="overflow-hidden">
                   <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3 mb-3">
                       <div className={cn(
                         'w-10 h-10 rounded-full flex items-center justify-center text-white shrink-0',
                         config.color
@@ -243,11 +247,61 @@ export default function GroupDetail() {
                           Paid by {payerName} • {format(new Date(expense.expense_date), 'MMM d')}
                         </p>
                       </div>
-                      <p className="font-semibold flex items-center">
+                      <p className="font-semibold flex items-center whitespace-nowrap">
                         <IndianRupee className="h-4 w-4" />
                         {expense.amount.toLocaleString('en-IN')}
                       </p>
                     </div>
+
+                    {/* Splits breakdown */}
+                    {expense.splits && expense.splits.length > 0 && (
+                      <div className="mt-3 pt-3 border-t space-y-2">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase">Split with {expense.splits.length} member{expense.splits.length !== 1 ? 's' : ''}</p>
+                        {expense.splits.map((split) => {
+                          const member = members.find(m => m.user_id === split.user_id);
+                          const memberName = member?.displayName || 'Unknown';
+                          
+                          return (
+                            <div key={split.id} className="flex items-center justify-between text-sm">
+                              <div className="flex items-center gap-2 flex-1">
+                                <button
+                                  onClick={() => {
+                                    if (id) {
+                                      updateSplitStatus.mutate({
+                                        groupId: id,
+                                        groupExpenseId: expense.id,
+                                        userId: split.user_id,
+                                        isSettled: !split.is_settled,
+                                      });
+                                    }
+                                  }}
+                                  disabled={updateSplitStatus.isPending}
+                                  className="text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                  {split.is_settled ? (
+                                    <CheckCircle className="h-4 w-4 text-green-600" />
+                                  ) : (
+                                    <Circle className="h-4 w-4" />
+                                  )}
+                                </button>
+                                <span className={cn(
+                                  split.is_settled && 'line-through text-muted-foreground'
+                                )}>
+                                  {memberName}
+                                </span>
+                              </div>
+                              <span className={cn(
+                                'font-medium',
+                                split.is_settled ? 'text-green-600' : 'text-muted-foreground'
+                              )}>
+                                <IndianRupee className="h-3 w-3 inline" />
+                                {split.amount.toLocaleString('en-IN')}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );
@@ -359,12 +413,12 @@ export default function GroupDetail() {
                   <CardContent className="p-4 flex items-center gap-3">
                     <Avatar className="h-10 w-10">
                       <AvatarFallback>
-                        {(member.profile?.display_name || 'U').charAt(0).toUpperCase()}
+                        {(member.displayName || 'U').charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium">
-                        {member.profile?.display_name || 'Unknown User'}
+                        {member.displayName}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Joined {member.created_at ? format(new Date(member.created_at), 'MMM d, yyyy') : 'Recently'}

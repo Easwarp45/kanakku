@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageTransition, staggerContainerVariants, staggerItemVariants, slideUpVariants } from '@/lib/animations';
 import { SkeletonCardLoader } from '@/components/ui/skeleton-loader';
+import { InsightsList } from '@/components/insights/InsightsList';
+import { useSmartInsights } from '@/hooks/useSmartInsights';
 import BottomNav from '@/components/layout/BottomNav';
 import { useAnalytics, TimePeriod } from '@/hooks/useAnalytics';
 import { 
@@ -31,6 +33,7 @@ export default function Analytics() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<TimePeriod>('month');
   const { data: analytics, isLoading } = useAnalytics(period);
+  const { insights, isLoading: insightsLoading } = useSmartInsights();
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -440,6 +443,21 @@ export default function Analytics() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Smart Insights Section */}
+            <motion.div
+              variants={slideUpVariants}
+              initial="hidden"
+              animate="visible"
+              transition={{ delay: 0.4 }}
+            >
+              <InsightsList 
+                insights={insights} 
+                isLoading={insightsLoading}
+                title="🧠 Smart Insights"
+                description="AI-powered analysis of your spending patterns"
+              />
+            </motion.div>
           </>
         ) : (
           <div className="text-center py-12 text-muted-foreground">

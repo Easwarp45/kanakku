@@ -3,9 +3,11 @@ import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { useRecentExpenses, useTodayTotal, useMonthlyTotal } from '@/hooks/useExpenses';
+import { useSmartInsights } from '@/hooks/useSmartInsights';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { InsightsWidget } from '@/components/insights/InsightsWidget';
 import BottomNav from '@/components/layout/BottomNav';
 import { LogOut, Plus, Users, TrendingUp, IndianRupee, Smartphone, Target, Bell } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -21,6 +23,7 @@ export default function Dashboard() {
   const { data: recentExpenses = [], isLoading: loadingRecent } = useRecentExpenses(5);
   const { data: todayTotal = 0 } = useTodayTotal();
   const { data: monthlyTotal = 0 } = useMonthlyTotal();
+  const { insights, isLoading: insightsLoading } = useSmartInsights();
 
   // Initialize offline sync
   useOfflineSync();
@@ -158,6 +161,15 @@ export default function Dashboard() {
             <TrendingUp className="h-5 w-5 text-primary" />
             <span className="text-xs">Stats</span>
           </Button>
+        </div>
+
+        {/* Smart Insights Widget */}
+        <div className="mt-6">
+          <InsightsWidget 
+            insights={insights} 
+            maxItems={2}
+            isLoading={insightsLoading}
+          />
         </div>
 
         {/* Recent transactions */}

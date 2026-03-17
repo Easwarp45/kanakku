@@ -19,6 +19,7 @@ export interface GroupMember {
   joined_at?: string;
   created_at?: string;
   is_admin?: boolean;
+  displayName?: string;
   profile?: {
     user_id?: string;
     display_name: string | null;
