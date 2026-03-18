@@ -69,10 +69,10 @@ const expenseTemplates = [
 
 // Sample income sources
 const incomeTemplates = [
-  { category: 'salary', description: 'Monthly salary', amount: 50000 },
-  { category: 'freelance', description: 'Project work', amount: 5000 },
-  { category: 'investment', description: 'Dividend received', amount: 1000 },
-  { category: 'bonus', description: 'Performance bonus', amount: 10000 },
+  { source: 'salary', description: 'Monthly salary', amount: 50000 },
+  { source: 'freelance', description: 'Project work', amount: 5000 },
+  { source: 'investment', description: 'Dividend received', amount: 1000 },
+  { source: 'business', description: 'Side project earnings', amount: 10000 },
 ];
 
 async function seedDatabase() {
@@ -216,17 +216,16 @@ async function seedDatabase() {
 
       for (const template of incomeTemplates) {
         const incomeDate = new Date();
-        incomeDate.setDate(incomeDate.getDate() - (template.category === 'salary' ? 0 : Math.floor(Math.random() * 30)));
+        incomeDate.setDate(incomeDate.getDate() - (template.source === 'salary' ? 0 : Math.floor(Math.random() * 30)));
 
         const { error } = await supabase
           .from('income')
           .insert({
             user_id: userId,
             amount: template.amount,
-            category: template.category,
+            source: template.source,
             description: template.description,
             income_date: incomeDate.toISOString().split('T')[0],
-            source: template.category,
           });
 
         if (!error) {
