@@ -257,7 +257,7 @@ export function useGroupBalances(groupId: string | undefined) {
 
     return {
       user_id: member.user_id,
-      display_name: member.nickname || member.profile?.display_name || 'Unknown',
+      display_name: member.nickname || member.profile?.display_name || 'Member',
       balance: Math.round(balance * 100) / 100,
     };
   });

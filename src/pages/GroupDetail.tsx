@@ -14,7 +14,8 @@ import {
   LogOut,
   X,
   Send,
-  MessageSquare
+  MessageSquare,
+  Crown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,6 +39,20 @@ import { CATEGORY_CONFIG } from '@/types/expense';
 import { cn } from '@/lib/utils';
 import BottomNav from '@/components/layout/BottomNav';
 import { toast } from 'sonner';
+
+// Generate a deterministic color from a string (for avatars)
+function getAvatarColor(str: string): string {
+  const colors = [
+    'bg-violet-500', 'bg-blue-500', 'bg-green-500', 'bg-orange-500',
+    'bg-pink-500', 'bg-teal-500', 'bg-indigo-500', 'bg-rose-500',
+    'bg-amber-500', 'bg-cyan-500',
+  ];
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
 
 export default function GroupDetail() {
   const navigate = useNavigate();
@@ -84,7 +99,6 @@ export default function GroupDetail() {
       });
       setMemberToRemove(null);
     } catch (error) {
-      // Error is already handled by toast in mutation
       console.error('Failed to remove member:', error);
     }
   };
@@ -101,7 +115,10 @@ export default function GroupDetail() {
   if (loadingGroup) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Loading group...</p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <p className="text-sm text-muted-foreground">Loading group...</p>
+        </div>
       </div>
     );
   }
@@ -115,14 +132,20 @@ export default function GroupDetail() {
     );
   }
 
-
   const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
   const myBalance = balances.find(b => b.user_id === user?.id)?.balance || 0;
+
+  // Helper to get member display name
+  const getMemberName = (userId: string) => {
+    const member = members.find(m => m.user_id === userId);
+    if (!member) return 'Unknown';
+    return member.nickname || member.profile?.display_name || `Member`;
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-background border-b px-4 py-3">
+      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => navigate('/groups')}>
@@ -130,16 +153,16 @@ export default function GroupDetail() {
             </Button>
             <div>
               <h1 className="text-lg font-semibold">{group.name}</h1>
-              <p className="text-xs text-muted-foreground">{members.length} members</p>
+              <p className="text-xs text-muted-foreground">{members.length} member{members.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="icon" onClick={copyInviteCode}>
-              {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+            <Button variant="outline" size="icon" onClick={copyInviteCode} title="Copy invite code">
+              {copied ? <Check className="h-4 w-4 text-green-600" /> : <Share2 className="h-4 w-4" />}
             </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" size="icon" className="text-destructive">
+                <Button variant="outline" size="icon" className="text-destructive" title="Leave group">
                   <LogOut className="h-4 w-4" />
                 </Button>
               </AlertDialogTrigger>
@@ -166,8 +189,8 @@ export default function GroupDetail() {
       <div className="p-4 grid grid-cols-2 gap-3">
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Total Expenses</p>
-            <p className="text-xl font-bold flex items-center">
+            <p className="text-xs text-muted-foreground mb-1">Total Expenses</p>
+            <p className="text-xl font-bold flex items-center gap-0.5">
               <IndianRupee className="h-5 w-5" />
               {totalExpenses.toLocaleString('en-IN')}
             </p>
@@ -177,9 +200,9 @@ export default function GroupDetail() {
           myBalance >= 0 ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'
         )}>
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Your Balance</p>
+            <p className="text-xs text-muted-foreground mb-1">Your Balance</p>
             <p className={cn(
-              'text-xl font-bold flex items-center',
+              'text-xl font-bold flex items-center gap-0.5',
               myBalance >= 0 ? 'text-green-600' : 'text-red-600'
             )}>
               {myBalance >= 0 ? '+' : '-'}
@@ -193,51 +216,57 @@ export default function GroupDetail() {
       {/* Add Expense Button */}
       <div className="px-4">
         <Button 
-          className="w-full gap-2" 
+          className="w-full gap-2 rounded-xl" 
           onClick={() => navigate(`/groups/${id}/add-expense`)}
         >
           <Plus className="h-4 w-4" />
-          Add Expense
+          Add Group Expense
         </Button>
       </div>
 
       {/* Tabs */}
       <Tabs defaultValue="expenses" className="mt-4">
-        <TabsList className="grid w-full grid-cols-3 mx-4" style={{ width: 'calc(100% - 2rem)' }}>
-          <TabsTrigger value="expenses" className="gap-1">
-            <Receipt className="h-4 w-4" />
+        <TabsList className="grid w-full grid-cols-4 mx-4" style={{ width: 'calc(100% - 2rem)' }}>
+          <TabsTrigger value="expenses" className="gap-1 text-xs">
+            <Receipt className="h-3.5 w-3.5" />
             Expenses
           </TabsTrigger>
-          <TabsTrigger value="balances" className="gap-1">
-            <ArrowRightLeft className="h-4 w-4" />
+          <TabsTrigger value="balances" className="gap-1 text-xs">
+            <ArrowRightLeft className="h-3.5 w-3.5" />
             Balances
           </TabsTrigger>
-          <TabsTrigger value="members" className="gap-1">
-            <Users className="h-4 w-4" />
+          <TabsTrigger value="members" className="gap-1 text-xs">
+            <Users className="h-3.5 w-3.5" />
             Members
+          </TabsTrigger>
+          <TabsTrigger value="chat" className="gap-1 text-xs">
+            <MessageSquare className="h-3.5 w-3.5" />
+            Chat
           </TabsTrigger>
         </TabsList>
 
         {/* Expenses Tab */}
         <TabsContent value="expenses" className="p-4 space-y-3">
           {expenses.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                No expenses yet. Add your first expense!
-              </CardContent>
-            </Card>
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
+                <Receipt className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <p className="font-medium mb-1">No expenses yet</p>
+              <p className="text-sm text-muted-foreground">Add your first group expense to get started!</p>
+            </div>
           ) : (
             expenses.map((expense) => {
               const config = CATEGORY_CONFIG[expense.category];
-              const payer = members.find(m => m.user_id === expense.paid_by);
-              const payerName = payer?.nickname || payer?.profile?.display_name || 'Unknown';
+              const payerName = getMemberName(expense.paid_by);
+              const isPayer = expense.paid_by === user?.id;
 
               return (
                 <Card key={expense.id}>
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
                       <div className={cn(
-                        'w-10 h-10 rounded-full flex items-center justify-center text-white shrink-0',
+                        'w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 text-sm',
                         config.color
                       )}>
                         {config.label.charAt(0)}
@@ -245,11 +274,15 @@ export default function GroupDetail() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium">{expense.description}</p>
                         <p className="text-sm text-muted-foreground">
-                          Paid by {payerName} • {format(new Date(expense.expense_date), 'MMM d')}
+                          Paid by{' '}
+                          <span className={cn('font-medium', isPayer && 'text-primary')}>
+                            {isPayer ? 'You' : payerName}
+                          </span>
+                          {' '}• {format(new Date(expense.expense_date), 'MMM d')}
                         </p>
                       </div>
-                      <p className="font-semibold flex items-center">
-                        <IndianRupee className="h-4 w-4" />
+                      <p className="font-semibold flex items-center text-sm">
+                        <IndianRupee className="h-3.5 w-3.5" />
                         {expense.amount.toLocaleString('en-IN')}
                       </p>
                     </div>
@@ -264,30 +297,46 @@ export default function GroupDetail() {
         <TabsContent value="balances" className="p-4 space-y-4">
           {simplifiedDebts.length === 0 ? (
             <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                All settled up! 🎉
+              <CardContent className="py-10 text-center">
+                <p className="text-2xl mb-2">🎉</p>
+                <p className="font-medium">All settled up!</p>
+                <p className="text-sm text-muted-foreground mt-1">No pending payments</p>
               </CardContent>
             </Card>
           ) : (
             <>
-              <h3 className="font-semibold">Who Owes Whom</h3>
+              <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Who Owes Whom</h3>
               {simplifiedDebts.map((debt, idx) => (
-                <Card key={idx}>
-                  <CardContent className="p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{debt.from_name}</span>
-                      <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{debt.to_name}</span>
+                <Card key={idx} className={cn(debt.from_user_id === user?.id && 'border-red-500/30 bg-red-500/5')}>
+                  <CardContent className="p-4 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <div className={cn('h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0', getAvatarColor(debt.from_user_id))}>
+                        {debt.from_name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {debt.from_user_id === user?.id ? 'You' : debt.from_name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">owes</p>
+                      </div>
+                      <ArrowRightLeft className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className={cn('h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0', getAvatarColor(debt.to_user_id))}>
+                        {debt.to_name.charAt(0).toUpperCase()}
+                      </div>
+                      <p className="text-sm font-medium truncate">
+                        {debt.to_user_id === user?.id ? 'You' : debt.to_name}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold flex items-center text-red-600">
-                        <IndianRupee className="h-4 w-4" />
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-semibold flex items-center text-red-600 text-sm">
+                        <IndianRupee className="h-3.5 w-3.5" />
                         {debt.amount.toLocaleString('en-IN')}
                       </span>
                       {debt.from_user_id === user?.id && (
                         <Button 
                           size="sm" 
                           variant="outline"
+                          className="h-7 text-xs"
                           onClick={() => navigate(`/groups/${id}/settle?to=${debt.to_user_id}&amount=${debt.amount}`)}
                         >
                           Settle
@@ -300,25 +349,29 @@ export default function GroupDetail() {
             </>
           )}
 
-          <h3 className="font-semibold mt-6">Member Balances</h3>
+          <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mt-4">Member Balances</h3>
           {balances.map((balance) => (
             <Card key={balance.user_id}>
               <CardContent className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>{balance.display_name.charAt(0).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <span className="font-medium">{balance.display_name}</span>
-                  {balance.user_id === user?.id && (
-                    <Badge variant="secondary" className="text-xs">You</Badge>
-                  )}
+                  <div className={cn('h-9 w-9 rounded-full flex items-center justify-center text-white font-bold text-sm', getAvatarColor(balance.user_id))}>
+                    {balance.display_name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">
+                      {balance.user_id === user?.id ? 'You' : balance.display_name}
+                    </p>
+                    {balance.user_id === user?.id && (
+                      <Badge variant="secondary" className="text-[10px] h-4 px-1.5">You</Badge>
+                    )}
+                  </div>
                 </div>
                 <span className={cn(
-                  'font-semibold flex items-center',
+                  'font-semibold flex items-center text-sm',
                   balance.balance >= 0 ? 'text-green-600' : 'text-red-600'
                 )}>
                   {balance.balance >= 0 ? '+' : '-'}
-                  <IndianRupee className="h-4 w-4" />
+                  <IndianRupee className="h-3.5 w-3.5" />
                   {Math.abs(balance.balance).toLocaleString('en-IN')}
                 </span>
               </CardContent>
@@ -330,14 +383,16 @@ export default function GroupDetail() {
         <TabsContent value="members" className="p-4 space-y-3">
           {/* Invite Code Section */}
           <Card className="bg-primary/5 border-primary/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Invite Code</CardTitle>
-              <CardDescription>Share this code to add members to the group</CardDescription>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-sm flex items-center gap-2">
+                Group Invite Code
+              </CardTitle>
+              <CardDescription className="text-xs">Share to add new members</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="px-4 pb-4 space-y-2">
               <Button 
                 variant="outline" 
-                className="w-full font-mono text-2xl tracking-widest font-bold gap-2 py-6 bg-background hover:bg-primary/10"
+                className="w-full font-mono text-2xl tracking-widest font-bold gap-2 py-6 bg-background hover:bg-primary/10 rounded-xl"
                 onClick={copyInviteCode}
               >
                 {group?.invite_code}
@@ -348,55 +403,67 @@ export default function GroupDetail() {
                 )}
               </Button>
               {copied && (
-                <p className="text-center text-sm text-green-600 font-medium animate-pulse">✓ Code copied!</p>
+                <p className="text-center text-xs text-green-600 font-medium">✓ Copied to clipboard!</p>
               )}
             </CardContent>
           </Card>
 
           {/* Members List */}
           <div className="space-y-2">
-            <h3 className="font-semibold text-sm px-2">Members ({members.length})</h3>
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide px-1">
+              Members ({members.length})
+            </h3>
             {loadingMembers ? (
-              <p className="text-sm text-muted-foreground px-2 py-4">Loading members...</p>
+              <div className="space-y-2">
+                {[1,2,3].map(i => (
+                  <div key={i} className="h-16 rounded-xl bg-muted animate-pulse" />
+                ))}
+              </div>
             ) : members.length === 0 ? (
               <p className="text-sm text-muted-foreground px-2 py-4">No members in group</p>
             ) : (
               members.map((member) => {
-                // Get member display name with fallback logic
                 const displayName = member.nickname || member.profile?.display_name || null;
-                const avatarInitial = (displayName || `User ${member.user_id.slice(0, 4)}`).charAt(0).toUpperCase();
+                const avatarInitial = (displayName || 'M').charAt(0).toUpperCase();
+                const avatarColor = getAvatarColor(member.user_id);
+                const isCurrentUser = member.user_id === user?.id;
+                const isMemberAdmin = member.user_id === group?.created_by;
                 
                 return (
-                <Card key={member.id} className="hover:bg-muted/50 transition-colors">
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback>{avatarInitial}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium">
-                        {displayName || `User ${member.user_id.slice(0, 8)}`}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Joined {member.created_at ? format(new Date(member.created_at), 'MMM d, yyyy') : 'Recently'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {member.user_id === user?.id && (
-                        <Badge variant="secondary" className="text-xs">You</Badge>
-                      )}
-                      {member.user_id === group?.created_by && (
-                        <Badge className="text-xs">Admin</Badge>
-                      )}
-                      {isAdmin && member.user_id !== user?.id && (
+                  <Card key={member.id} className={cn('hover:bg-muted/50 transition-colors', isCurrentUser && 'border-primary/30 bg-primary/5')}>
+                    <CardContent className="p-3 flex items-center gap-3">
+                      <div className={cn('h-10 w-10 rounded-full flex items-center justify-center text-white font-bold shrink-0', avatarColor)}>
+                        {avatarInitial}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium text-sm">
+                            {displayName || 'Member'}
+                          </p>
+                          {isCurrentUser && (
+                            <Badge variant="secondary" className="text-[10px] h-4 px-1.5">You</Badge>
+                          )}
+                          {isMemberAdmin && (
+                            <Badge className="text-[10px] h-4 px-1.5 bg-amber-500/20 text-amber-700 border-amber-500/30 gap-1">
+                              <Crown className="h-2.5 w-2.5" />
+                              Admin
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Joined {member.created_at ? format(new Date(member.created_at), 'MMM d, yyyy') : 'Recently'}
+                        </p>
+                      </div>
+                      {isAdmin && !isCurrentUser && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 p-0 rounded-full"
                               onClick={() => setMemberToRemove({ 
                                 id: member.id, 
-                                name: displayName || `User ${member.user_id.slice(0, 8)}`
+                                name: displayName || 'Member'
                               })}
                             >
                               <X className="h-4 w-4" />
@@ -421,12 +488,83 @@ export default function GroupDetail() {
                           </AlertDialogContent>
                         </AlertDialog>
                       )}
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
                 );
               })
             )}
+          </div>
+        </TabsContent>
+
+        {/* Chat Tab */}
+        <TabsContent value="chat" className="flex flex-col" style={{ height: 'calc(100vh - 340px)' }}>
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {chats.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
+                  <MessageSquare className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <p className="font-medium mb-1">No messages yet</p>
+                <p className="text-sm text-muted-foreground">Start the conversation!</p>
+              </div>
+            ) : (
+              chats.map((chat: any) => {
+                const isMe = chat.user_id === user?.id;
+                const senderName = isMe 
+                  ? 'You' 
+                  : (chat.profiles?.display_name || getMemberName(chat.user_id));
+                const avatarColor = getAvatarColor(chat.user_id);
+                const avatarInitial = senderName.charAt(0).toUpperCase();
+
+                return (
+                  <div key={chat.id} className={cn('flex gap-2', isMe && 'flex-row-reverse')}>
+                    <div className={cn('h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0', avatarColor)}>
+                      {avatarInitial}
+                    </div>
+                    <div className={cn('max-w-[75%]', isMe && 'items-end flex flex-col')}>
+                      {!isMe && (
+                        <p className="text-xs text-muted-foreground font-medium mb-1">{senderName}</p>
+                      )}
+                      <div className={cn(
+                        'px-3 py-2 rounded-2xl text-sm',
+                        isMe 
+                          ? 'bg-primary text-primary-foreground rounded-tr-sm' 
+                          : 'bg-muted rounded-tl-sm'
+                      )}>
+                        {chat.message}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        {format(new Date(chat.created_at), 'h:mm a')}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Message Input */}
+          <div className="p-4 border-t bg-background flex gap-2">
+            <Input
+              placeholder="Type a message..."
+              value={chatMessage}
+              onChange={(e) => setChatMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              className="flex-1"
+            />
+            <Button 
+              size="icon" 
+              onClick={handleSendMessage}
+              disabled={!chatMessage.trim() || sendGroupChat.isPending}
+            >
+              <Send className="h-4 w-4" />
+            </Button>
           </div>
         </TabsContent>
       </Tabs>

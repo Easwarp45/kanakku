@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Users, ArrowRight, UserPlus, Copy } from 'lucide-react';
+import { Plus, Users, ArrowRight, Copy, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,40 +8,89 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { PageTransition, listContainerVariants, listItemVariants } from '@/lib/animations';
 import { SkeletonListLoader } from '@/components/ui/skeleton-loader';
 import { useGroups, useCreateGroup, useJoinGroup, useGroupMembers } from '@/hooks/useGroups';
 import { toast } from 'sonner';
 import BottomNav from '@/components/layout/BottomNav';
 
+// Generate a deterministic color from a string (for avatars)
+function getAvatarColor(str: string): string {
+  const colors = [
+    'bg-violet-500', 'bg-blue-500', 'bg-green-500', 'bg-orange-500',
+    'bg-pink-500', 'bg-teal-500', 'bg-indigo-500', 'bg-rose-500',
+  ];
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
+
 function GroupCard({ group }: { group: { id: string; name: string; description: string | null } }) {
   const navigate = useNavigate();
   const { data: members = [] } = useGroupMembers(group.id);
+
+  const groupInitial = group.name.charAt(0).toUpperCase();
+  const avatarColor = getAvatarColor(group.id);
 
   return (
     <motion.div
       initial="initial"
       animate="animate"
       variants={listItemVariants}
-      whileHover={{ scale: 1.02 }}
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.99 }}
     >
-    <Card 
-      className="cursor-pointer hover:bg-muted/50 transition-colors"
-      onClick={() => navigate(`/groups/${group.id}`)}
-    >
-      <CardContent className="flex items-center gap-4 p-4">
-        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-          <Users className="h-6 w-6 text-primary" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold truncate">{group.name}</h3>
-          <p className="text-sm text-muted-foreground">
-            {members.length} member{members.length !== 1 ? 's' : ''}
-          </p>
-        </div>
-        <ArrowRight className="h-5 w-5 text-muted-foreground" />
-      </CardContent>
-    </Card>
+      <Card
+        className="cursor-pointer hover:bg-muted/50 transition-all duration-200 hover:shadow-md border-border/50"
+        onClick={() => navigate(`/groups/${group.id}`)}
+      >
+        <CardContent className="flex items-center gap-4 p-4">
+          {/* Group Avatar */}
+          <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg shrink-0 ${avatarColor}`}>
+            {groupInitial}
+          </div>
+
+          {/* Group Info */}
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold truncate">{group.name}</h3>
+            {group.description ? (
+              <p className="text-xs text-muted-foreground truncate mt-0.5">{group.description}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {members.length} member{members.length !== 1 ? 's' : ''}
+              </p>
+            )}
+            {group.description && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {members.length} member{members.length !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+
+          {/* Member Avatars preview */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex -space-x-2">
+              {members.slice(0, 3).map((m) => {
+                const name = m.nickname || m.profile?.display_name || '';
+                const initial = name ? name.charAt(0).toUpperCase() : '?';
+                const color = getAvatarColor(m.user_id);
+                return (
+                  <div
+                    key={m.id}
+                    className={`h-6 w-6 rounded-full border-2 border-background flex items-center justify-center text-white text-[10px] font-bold ${color}`}
+                  >
+                    {initial}
+                  </div>
+                );
+              })}
+            </div>
+            <ArrowRight className="h-4 w-4 text-muted-foreground ml-1" />
+          </div>
+        </CardContent>
+      </Card>
     </motion.div>
   );
 }
@@ -70,7 +119,6 @@ export default function Groups() {
       setCreatedGroupCode(result.invite_code);
       setNewGroupName('');
       setNewGroupDesc('');
-      // Keep dialog open to show the code
     }
   };
 
@@ -85,7 +133,6 @@ export default function Groups() {
   const handleDialogOpenChange = (open: boolean) => {
     setDialogOpen(open);
     if (!open) {
-      // Reset when closing dialog
       setCreatedGroupCode(null);
       setNewGroupName('');
       setNewGroupDesc('');
@@ -97,14 +144,19 @@ export default function Groups() {
     <PageTransition>
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-background border-b px-4 py-3">
+      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b px-4 py-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Groups</h1>
+          <div>
+            <h1 className="text-xl font-bold">Groups</h1>
+            {groups.length > 0 && (
+              <p className="text-xs text-muted-foreground">{groups.length} group{groups.length !== 1 ? 's' : ''}</p>
+            )}
+          </div>
           <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
             <DialogTrigger asChild>
-              <Button size="sm" className="gap-1">
+              <Button size="sm" className="gap-1.5 rounded-full px-4">
                 <Plus className="h-4 w-4" />
-                New
+                New Group
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -118,9 +170,9 @@ export default function Groups() {
                     </DialogDescription>
                   </DialogHeader>
                   
-                  <div className="bg-primary/10 border-2 border-primary rounded-lg p-6">
+                  <div className="bg-primary/10 border-2 border-primary rounded-xl p-6">
                     <p className="text-sm text-muted-foreground mb-2">Invite Code</p>
-                    <p className="font-mono text-4xl font-bold tracking-widest mb-4">
+                    <p className="font-mono text-4xl font-bold tracking-widest mb-4 text-primary">
                       {createdGroupCode}
                     </p>
                     <Button 
@@ -144,7 +196,6 @@ export default function Groups() {
                   </Button>
                 </div>
               ) : (
-                // Show create/join form
                 <>
               <DialogHeader>
                 <DialogTitle>Create or Join Group</DialogTitle>
@@ -192,7 +243,7 @@ export default function Groups() {
                     <Label htmlFor="code">Invite Code</Label>
                     <Input
                       id="code"
-                      placeholder="Enter 8-character code (e.g., ABC12345)"
+                      placeholder="Enter 8-character code"
                       value={inviteCode.toUpperCase()}
                       onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                       maxLength={8}
@@ -215,25 +266,23 @@ export default function Groups() {
         </div>
       </header>
 
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-3">
         {isLoading ? (
           <SkeletonListLoader count={3} />
         ) : groups.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                <Users className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <CardTitle className="mb-2">No Groups Yet</CardTitle>
-              <CardDescription className="mb-4">
-                Create a group to start splitting expenses with friends
-              </CardDescription>
-              <Button onClick={() => setDialogOpen(true)} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Create Group
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/10">
+              <Users className="h-10 w-10 text-primary" />
+            </div>
+            <h2 className="text-xl font-bold mb-2">No Groups Yet</h2>
+            <p className="text-sm text-muted-foreground mb-6 max-w-xs">
+              Create a group to start splitting expenses with friends, roommates, or travel buddies
+            </p>
+            <Button onClick={() => setDialogOpen(true)} className="gap-2 rounded-full px-6">
+              <Plus className="h-4 w-4" />
+              Create Your First Group
+            </Button>
+          </div>
         ) : (
           <motion.div className="space-y-3" variants={listContainerVariants} initial="initial" animate="animate">
             {groups.map((group) => (

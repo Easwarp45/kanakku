@@ -195,7 +195,7 @@ export default function AddGroupExpense() {
             <CardContent className="p-0 divide-y">
               {members.map((member) => {
                 const isSelected = selectedMembers.includes(member.user_id);
-                const displayName = member.nickname || member.profile?.display_name || 'Unknown';
+                const displayName = member.nickname || member.profile?.display_name || 'Member';
                 const isCurrentUser = member.user_id === user?.id;
 
                 return (

@@ -79,6 +79,77 @@ export type Database = {
           },
         ]
       }
+      group_chats: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          message: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          message: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          message?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_chats_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      income: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          id: string
+          income_date: string
+          is_recurring: boolean
+          source: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          income_date?: string
+          is_recurring?: boolean
+          source: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          income_date?: string
+          is_recurring?: boolean
+          source?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       expenses: {
         Row: {
           amount: number
@@ -167,23 +238,26 @@ export type Database = {
       }
       group_members: {
         Row: {
+          created_at: string
           group_id: string
           id: string
-          joined_at: string
+          is_admin: boolean
           nickname: string | null
           user_id: string
         }
         Insert: {
+          created_at?: string
           group_id: string
           id?: string
-          joined_at?: string
+          is_admin?: boolean
           nickname?: string | null
           user_id: string
         }
         Update: {
+          created_at?: string
           group_id?: string
           id?: string
-          joined_at?: string
+          is_admin?: boolean
           nickname?: string | null
           user_id?: string
         }
@@ -309,6 +383,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_group_by_invite_code: {
+        Args: { code: string }
+        Returns: Array<{
+          id: string
+          name: string
+          description: string | null
+          image_url: string | null
+          created_by: string
+          invite_code: string
+          created_at: string
+          updated_at: string
+        }>
+      }
+      is_group_admin: {
+        Args: { group_uuid: string; user_uuid: string }
+        Returns: boolean
+      }
       is_group_member: {
         Args: { group_uuid: string; user_uuid: string }
         Returns: boolean
