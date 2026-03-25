@@ -157,40 +157,49 @@ export function useGroupMembers(groupId: string | undefined) {
           filter: `group_id=eq.${groupId}`,
         },
         (payload: any) => {
-          console.log('Real-time member update:', payload);
+          console.log('📢 Real-time member change detected:', payload);
           
-          // Handle deletions - member was removed
+          // Handle deletions - someone was removed
           if (payload.eventType === 'DELETE') {
-            // Check if current user was removed
-            if (payload.old_record.user_id === user?.id) {
-              // Current user was removed from group
-              console.log('You were removed from this group');
-              toast.error('You were removed from this group');
-              // Refetch groups list to remove this group
-              queryClient.invalidateQueries({ queryKey: ['groups', user?.id], exact: true });
-              // Leave the page after a delay
-              setTimeout(() => {
-                // This will trigger component unmount
-                queryClient.invalidateQueries({ queryKey: ['group', groupId], exact: true });
-              }, 1000);
+            const removedUserId = payload.old_record?.user_id;
+            console.log(`Member removed: ${removedUserId}, Current user: ${user?.id}`);
+            
+            // If current user was removed, they need to see an error
+            if (removedUserId === user?.id) {
+              console.log('⚠️ Current user was removed from group');
+              // Force immediate refetch to reflect removal
+              queryClient.invalidateQueries({ queryKey: ['group-members', groupId], exact: true });
+              // This will trigger the useEffect in GroupDetail that checks membership
+            } else {
+              // Someone else was removed, just refetch the member list
+              console.log(`User ${removedUserId} was removed by admin`);
+              queryClient.invalidateQueries({ queryKey: ['group-members', groupId], exact: true });
             }
-            // Always refetch members to reflect the deletion
-            queryClient.invalidateQueries({ queryKey: ['group-members', groupId], exact: true });
-          }
-          
+          } 
           // Handle insertions - new member added
-          if (payload.eventType === 'INSERT') {
+          else if (payload.eventType === 'INSERT') {
+            console.log('New member added');
+            queryClient.invalidateQueries({ queryKey: ['group-members', groupId], exact: true });
+          } 
+          // Handle updates - member details changed
+          else if (payload.eventType === 'UPDATE') {
+            console.log('Member details updated');
             queryClient.invalidateQueries({ queryKey: ['group-members', groupId], exact: true });
           }
           
-          // Handle updates - member details changed
-          if (payload.eventType === 'UPDATE') {
-            queryClient.invalidateQueries({ queryKey: ['group-members', groupId], exact: true });
-          }
+          // Force a refetch to ensure the UI updates immediately
+          queryClient.refetchQueries({ 
+            queryKey: ['group-members', groupId], 
+            type: 'active',
+            cancelRefetch: false
+          });
         }
       )
       .subscribe((status) => {
-        console.log(`Subscription status for group ${groupId}:`, status);
+        console.log(`📡 Subscription status for group ${groupId}:`, status);
+        if (status === 'SUBSCRIBED') {
+          console.log(`✅ Real-time listener active for group ${groupId}`);
+        }
       });
 
     subscriptionRef.current = subscription;
@@ -199,6 +208,7 @@ export function useGroupMembers(groupId: string | undefined) {
     return () => {
       if (subscriptionRef.current) {
         supabase.removeChannel(subscriptionRef.current);
+        console.log(`❌ Unsubscribed from group ${groupId}`);
       }
     };
   }, [groupId, user?.id, queryClient]);

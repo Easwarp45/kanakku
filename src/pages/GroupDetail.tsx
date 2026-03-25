@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { 
@@ -71,8 +71,27 @@ export default function GroupDetail() {
   const [copied, setCopied] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
+  const [removed, setRemoved] = useState(false);
 
   const isAdmin = group && user && group.created_by === user.id;
+
+  // Check if current user is still a member of the group
+  useEffect(() => {
+    if (!loadingMembers && members.length > 0 && user) {
+      const isCurrentUserMember = members.some(m => m.user_id === user.id);
+      
+      if (!isCurrentUserMember) {
+        console.log('User is not a member of this group - removing access');
+        setRemoved(true);
+        toast.error('You were removed from this group');
+        
+        // Redirect after a brief delay
+        setTimeout(() => {
+          navigate('/groups');
+        }, 2000);
+      }
+    }
+  }, [members, user, loadingMembers, navigate]);
 
   const copyInviteCode = () => {
     if (group?.invite_code) {
@@ -105,6 +124,15 @@ export default function GroupDetail() {
 
   const handleSendMessage = async () => {
     if (!id || !chatMessage.trim()) return;
+    
+    // Verify user is still a member before sending message
+    const isCurrentUserMember = members.some(m => m.user_id === user?.id);
+    if (!isCurrentUserMember) {
+      toast.error('You are no longer a member of this group');
+      navigate('/groups');
+      return;
+    }
+    
     await sendGroupChat.mutateAsync({
       groupId: id,
       message: chatMessage,
@@ -119,6 +147,19 @@ export default function GroupDetail() {
           <div className="h-10 w-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
           <p className="text-sm text-muted-foreground">Loading group...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (removed) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 px-4">
+        <div className="h-16 w-16 rounded-2xl bg-red-500/10 flex items-center justify-center mb-4">
+          <LogOut className="h-8 w-8 text-red-600" />
+        </div>
+        <p className="text-lg font-semibold text-center">You were removed from this group</p>
+        <p className="text-sm text-muted-foreground text-center">The admin has removed you from the group. You can no longer access it.</p>
+        <Button onClick={() => navigate('/groups')} className="mt-4">Back to Groups</Button>
       </div>
     );
   }
