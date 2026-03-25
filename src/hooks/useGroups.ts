@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import type { 
@@ -77,15 +78,19 @@ export function useGroup(id: string | undefined) {
   });
 }
 
-// Fetch group members with profiles
+// Fetch group members with profiles + real-time updates
 export function useGroupMembers(groupId: string | undefined) {
-  return useQuery({
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const subscriptionRef = useRef<any>(null);
+
+  const query = useQuery({
     queryKey: ['group-members', groupId],
     queryFn: async () => {
       if (!groupId) return [];
 
       try {
-        // Fetch members - simpler query without nested profile relation
+        // Fetch members
         const { data: members, error: membersError } = await supabase
           .from('group_members')
           .select('id,group_id,user_id,is_admin,nickname,created_at')
@@ -99,7 +104,7 @@ export function useGroupMembers(groupId: string | undefined) {
 
         if (!members || members.length === 0) return [];
 
-        // Fetch profiles separately with proper error handling
+        // Fetch profiles separately
         const userIds = members.map(m => m.user_id);
         const { data: profiles, error: profilesError } = await supabase
           .from('profiles')
@@ -108,16 +113,15 @@ export function useGroupMembers(groupId: string | undefined) {
 
         if (profilesError) {
           console.error('Error fetching profiles, some members may show without full display name:', profilesError);
-          // Continue without profiles rather than failing - profiles might not exist for all users
         }
 
-        // Map profiles by user_id for easy lookup
+        // Map profiles by user_id
         const profileMap = (profiles || []).reduce((acc, p) => {
           acc[p.user_id] = p;
           return acc;
         }, {} as Record<string, any>);
 
-        // Combine members with their profiles
+        // Combine members with profiles
         const result = members.map(member => {
           const profile = profileMap[member.user_id];
           return {
@@ -133,9 +137,73 @@ export function useGroupMembers(groupId: string | undefined) {
       }
     },
     enabled: !!groupId,
-    staleTime: 1000 * 60 * 3, // 3 minutes - reduce to get fresher member data
+    staleTime: 1000 * 60 * 3,
     retry: 2,
   });
+
+  // Set up real-time subscription for member changes
+  useEffect(() => {
+    if (!groupId) return;
+
+    // Subscribe to group_members table changes for this group
+    const subscription = supabase
+      .channel(`group-members-${groupId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'group_members',
+          filter: `group_id=eq.${groupId}`,
+        },
+        (payload: any) => {
+          console.log('Real-time member update:', payload);
+          
+          // Handle deletions - member was removed
+          if (payload.eventType === 'DELETE') {
+            // Check if current user was removed
+            if (payload.old_record.user_id === user?.id) {
+              // Current user was removed from group
+              console.log('You were removed from this group');
+              toast.error('You were removed from this group');
+              // Refetch groups list to remove this group
+              queryClient.invalidateQueries({ queryKey: ['groups', user?.id], exact: true });
+              // Leave the page after a delay
+              setTimeout(() => {
+                // This will trigger component unmount
+                queryClient.invalidateQueries({ queryKey: ['group', groupId], exact: true });
+              }, 1000);
+            }
+            // Always refetch members to reflect the deletion
+            queryClient.invalidateQueries({ queryKey: ['group-members', groupId], exact: true });
+          }
+          
+          // Handle insertions - new member added
+          if (payload.eventType === 'INSERT') {
+            queryClient.invalidateQueries({ queryKey: ['group-members', groupId], exact: true });
+          }
+          
+          // Handle updates - member details changed
+          if (payload.eventType === 'UPDATE') {
+            queryClient.invalidateQueries({ queryKey: ['group-members', groupId], exact: true });
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log(`Subscription status for group ${groupId}:`, status);
+      });
+
+    subscriptionRef.current = subscription;
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (subscriptionRef.current) {
+        supabase.removeChannel(subscriptionRef.current);
+      }
+    };
+  }, [groupId, user?.id, queryClient]);
+
+  return query;
 }
 
 // Fetch group expenses
