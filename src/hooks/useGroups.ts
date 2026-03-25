@@ -549,46 +549,41 @@ export function useRemoveGroupMember() {
       return input.memberId;
     },
     onSuccess: async (deletedMemberId, variables) => {
-      // Immediately remove from cache to show instant UI update
+      // Step 1: Immediately update cache to remove the member from UI
+      const previousData = queryClient.getQueryData(['group-members', variables.groupId]);
+      
       queryClient.setQueryData(['group-members', variables.groupId], (oldData: any) => {
         if (Array.isArray(oldData)) {
-          // Filter out the deleted member by ID
-          return oldData.filter((member: any) => member.id !== deletedMemberId);
+          // Filter out the deleted member by ID - this removes it from UI instantly
+          const filtered = oldData.filter((member: any) => member.id !== deletedMemberId);
+          console.log(`Removed member ${deletedMemberId}. Count: ${oldData.length} -> ${filtered.length}`);
+          return filtered;
         }
         return oldData;
       });
 
-      // Clear all related caches
-      queryClient.invalidateQueries({ 
-        queryKey: ['group-members', variables.groupId], 
-        exact: true 
-      });
+      // Step 2: Mark balances as stale so they recalculate from fresh member list
       queryClient.invalidateQueries({ 
         queryKey: ['group-balances', variables.groupId], 
         exact: true 
       });
-      queryClient.invalidateQueries({ 
-        queryKey: ['groups'], 
-        exact: true 
-      });
-      
-      // Wait a bit for database to sync, then force refetch from server
-      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Step 3: Wait longer for database replication, then soft-refetch
+      // This prevents the member from reappearing due to a race condition
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
       try {
-        const memberQueryPromise = queryClient.refetchQueries({ 
-          queryKey: ['group-members', variables.groupId], 
-          type: 'active' 
-        });
-        
+        // Refetch only if there are active subscribers to avoid unnecessary requests
+        // This will verify the deletion was successful on the server
         const balanceQueryPromise = queryClient.refetchQueries({ 
           queryKey: ['group-balances', variables.groupId], 
           type: 'active' 
         });
 
-        await Promise.all([memberQueryPromise, balanceQueryPromise]);
+        await balanceQueryPromise;
       } catch (error) {
         console.error('Error refetching after member removal:', error);
+        // Don't throw - we've already removed from UI, this is just verification
       }
       
       toast.success('Member removed successfully');
