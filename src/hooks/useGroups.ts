@@ -547,18 +547,43 @@ export function useRemoveGroupMember() {
 
       if (deleteError) throw deleteError;
     },
-    onSuccess: (_data, variables) => {
-      // Aggressively invalidate to ensure UI updates
-      // Invalidate the specific group's members list
-      queryClient.invalidateQueries({ queryKey: ['group-members', variables.groupId], exact: false });
-      // Also invalidate group balances since they depend on members
-      queryClient.invalidateQueries({ queryKey: ['group-balances', variables.groupId], exact: false });
-      // Invalidate all groups to update missing member count
-      queryClient.invalidateQueries({ queryKey: ['groups'], exact: false });
+    onSuccess: async (_data, variables) => {
+      // Clear the cache for this group's members and balances
+      queryClient.setQueryData(['group-members', variables.groupId], (oldData: any) => {
+        // Remove the deleted member from cache
+        if (Array.isArray(oldData)) {
+          return oldData;
+        }
+        return oldData;
+      });
       
-      // Refetch member list immediately with force
-      queryClient.refetchQueries({ queryKey: ['group-members', variables.groupId], type: 'active' });
-      queryClient.refetchQueries({ queryKey: ['group-balances', variables.groupId], type: 'active' });
+      // Force invalidate with exact match only
+      queryClient.invalidateQueries({ 
+        queryKey: ['group-members', variables.groupId], 
+        exact: true 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['group-balances', variables.groupId], 
+        exact: true 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['groups'], 
+        exact: true 
+      });
+      
+      // Refetch immediately and wait for completion
+      try {
+        await queryClient.refetchQueries({ 
+          queryKey: ['group-members', variables.groupId], 
+          type: 'active' 
+        });
+        await queryClient.refetchQueries({ 
+          queryKey: ['group-balances', variables.groupId], 
+          type: 'active' 
+        });
+      } catch (error) {
+        console.error('Error refetching after member removal:', error);
+      }
       
       toast.success('Member removed successfully');
     },

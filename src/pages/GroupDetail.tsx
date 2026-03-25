@@ -227,21 +227,21 @@ export default function GroupDetail() {
       {/* Tabs */}
       <Tabs defaultValue="expenses" className="mt-4">
         <TabsList className="grid w-full grid-cols-4 mx-4" style={{ width: 'calc(100% - 2rem)' }}>
-          <TabsTrigger value="expenses" className="gap-1 text-xs">
+          <TabsTrigger value="expenses" className="gap-1 text-xs sm:text-sm">
             <Receipt className="h-3.5 w-3.5" />
-            Expenses
+            <span className="hidden sm:inline">Expenses</span>
           </TabsTrigger>
-          <TabsTrigger value="balances" className="gap-1 text-xs">
+          <TabsTrigger value="balances" className="gap-1 text-xs sm:text-sm">
             <ArrowRightLeft className="h-3.5 w-3.5" />
-            Balances
+            <span className="hidden sm:inline">Balances</span>
           </TabsTrigger>
-          <TabsTrigger value="members" className="gap-1 text-xs">
+          <TabsTrigger value="members" className="gap-1 text-xs sm:text-sm">
             <Users className="h-3.5 w-3.5" />
-            Members
+            <span className="hidden sm:inline">Members</span>
           </TabsTrigger>
-          <TabsTrigger value="chat" className="gap-1 text-xs">
+          <TabsTrigger value="chat" className="gap-1 text-xs sm:text-sm font-semibold" title="Group Chat">
             <MessageSquare className="h-3.5 w-3.5" />
-            Chat
+            <span className="hidden sm:inline">Chat</span>
           </TabsTrigger>
         </TabsList>
 
