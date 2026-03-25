@@ -601,22 +601,44 @@ export function useGroupChats(groupId: string | undefined) {
     queryFn: async () => {
       if (!groupId) return [];
 
-      const { data, error } = await supabase
-        .from('group_chats')
-        .select(`
-          id,
-          group_id,
-          user_id,
-          message,
-          created_at,
-          updated_at,
-          profiles!group_chats_user_id_fkey(user_id,display_name,avatar_url)
-        `)
-        .eq('group_id', groupId)
-        .order('created_at', { ascending: true });
+      try {
+        // Fetch messages first
+        const { data: messages, error: messagesError } = await supabase
+          .from('group_chats')
+          .select('id,group_id,user_id,message,created_at,updated_at')
+          .eq('group_id', groupId)
+          .order('created_at', { ascending: true });
 
-      if (error) throw error;
-      return data || [];
+        if (messagesError) throw messagesError;
+        if (!messages || messages.length === 0) return [];
+
+        // Fetch user profiles separately
+        const userIds = [...new Set(messages.map(m => m.user_id))];
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('user_id,display_name,avatar_url')
+          .in('user_id', userIds);
+
+        if (profilesError) {
+          console.error('Error fetching profiles for chat:', profilesError);
+          // Continue without profiles rather than failing
+        }
+
+        // Map profiles by user_id
+        const profileMap = (profiles || []).reduce((acc, p) => {
+          acc[p.user_id] = p;
+          return acc;
+        }, {} as Record<string, any>);
+
+        // Combine messages with profiles
+        return messages.map(message => ({
+          ...message,
+          profiles: profileMap[message.user_id] || { user_id: message.user_id, display_name: null, avatar_url: null },
+        }));
+      } catch (error) {
+        console.error('Error fetching group chats:', error);
+        throw error;
+      }
     },
     enabled: !!groupId,
     staleTime: 1000 * 5, // 5 seconds - reduced for better real-time feel
