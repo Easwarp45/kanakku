@@ -247,6 +247,11 @@ export default function GroupDetail() {
 
         {/* Expenses Tab */}
         <TabsContent value="expenses" className="p-4 space-y-3">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+              Total Expenses: <span className="text-primary">₹{expenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString('en-IN')}</span>
+            </h3>
+          </div>
           {expenses.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
@@ -266,25 +271,28 @@ export default function GroupDetail() {
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
                       <div className={cn(
-                        'w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 text-sm',
+                        'w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 text-sm font-bold',
                         config.color
                       )}>
                         {config.label.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium">{expense.description}</p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="font-medium text-sm">{expense.description}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
                           Paid by{' '}
-                          <span className={cn('font-medium', isPayer && 'text-primary')}>
+                          <span className={cn('font-semibold', isPayer && 'text-primary')}>
                             {isPayer ? 'You' : payerName}
                           </span>
-                          {' '}• {format(new Date(expense.expense_date), 'MMM d')}
+                          {' '}on {format(new Date(expense.expense_date), 'MMM d, yyyy')}
                         </p>
                       </div>
-                      <p className="font-semibold flex items-center text-sm">
-                        <IndianRupee className="h-3.5 w-3.5" />
-                        {expense.amount.toLocaleString('en-IN')}
-                      </p>
+                      <div className="text-right shrink-0">
+                        <p className="font-bold text-primary flex items-center justify-end gap-1 text-sm">
+                          <IndianRupee className="h-3.5 w-3.5" />
+                          {expense.amount.toLocaleString('en-IN')}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">{expense.category}</p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -296,56 +304,81 @@ export default function GroupDetail() {
         {/* Balances Tab */}
         <TabsContent value="balances" className="p-4 space-y-4">
           {simplifiedDebts.length === 0 ? (
-            <Card>
+            <Card className="bg-green-50 border-green-200">
               <CardContent className="py-10 text-center">
-                <p className="text-2xl mb-2">🎉</p>
-                <p className="font-medium">All settled up!</p>
-                <p className="text-sm text-muted-foreground mt-1">No pending payments</p>
+                <p className="text-4xl mb-2">✨</p>
+                <p className="font-bold text-green-900">All Settled Up!</p>
+                <p className="text-sm text-green-700 mt-1">Everyone has paid their share perfectly</p>
               </CardContent>
             </Card>
           ) : (
             <>
-              <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Who Owes Whom</h3>
-              {simplifiedDebts.map((debt, idx) => (
-                <Card key={idx} className={cn(debt.from_user_id === user?.id && 'border-red-500/30 bg-red-500/5')}>
-                  <CardContent className="p-4 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <div className={cn('h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0', getAvatarColor(debt.from_user_id))}>
-                        {debt.from_name.charAt(0).toUpperCase()}
+              <div className="space-y-2 mb-4">
+                <h3 className="font-bold text-lg">💰 Pending Settlements</h3>
+                <p className="text-xs text-muted-foreground">Below are people who need to pay or receive money</p>
+              </div>
+              {simplifiedDebts.map((debt, idx) => {
+                const isYourDebt = debt.from_user_id === user?.id;
+                return (
+                  <Card key={idx} className={cn(
+                    'border-2 transition-all',
+                    isYourDebt ? 'border-red-500/30 bg-red-500/5' : 'border-green-500/30 bg-green-500/5'
+                  )}>
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className={cn('h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-bold', getAvatarColor(debt.from_user_id))}>
+                            {debt.from_name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-bold text-sm">
+                              {isYourDebt ? '📤 You owe' : `${debt.from_name} owes`}
+                            </p>
+                          </div>
+                          <div className={cn('h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-bold', getAvatarColor(debt.to_user_id))}>
+                            {debt.to_name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-bold text-sm">
+                              {debt.to_user_id === user?.id ? '📥 You' : debt.to_name}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between bg-background/50 rounded-lg p-3">
+                          <div className="flex-1">
+                            <p className="text-xs text-muted-foreground">Amount to settle</p>
+                            <p className={cn(
+                              'font-bold text-lg flex items-center gap-1',
+                              isYourDebt ? 'text-red-600' : 'text-green-600'
+                            )}>
+                              <IndianRupee className="h-4 w-4" />
+                              {debt.amount.toLocaleString('en-IN')}
+                            </p>
+                          </div>
+                          {isYourDebt && (
+                            <Button 
+                              size="sm" 
+                              className="ml-2"
+                              onClick={() => {
+                                toast.info('Feature coming soon: Settle payments directly from app');
+                              }}
+                            >
+                              Mark Settled
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {debt.from_user_id === user?.id ? 'You' : debt.from_name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">owes</p>
-                      </div>
-                      <ArrowRightLeft className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <div className={cn('h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0', getAvatarColor(debt.to_user_id))}>
-                        {debt.to_name.charAt(0).toUpperCase()}
-                      </div>
-                      <p className="text-sm font-medium truncate">
-                        {debt.to_user_id === user?.id ? 'You' : debt.to_name}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="font-semibold flex items-center text-red-600 text-sm">
-                        <IndianRupee className="h-3.5 w-3.5" />
-                        {debt.amount.toLocaleString('en-IN')}
-                      </span>
-                      {debt.from_user_id === user?.id && (
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          className="h-7 text-xs"
-                          onClick={() => navigate(`/groups/${id}/settle?to=${debt.to_user_id}&amount=${debt.amount}`)}
-                        >
-                          Settle
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+              <Card className="bg-blue-50 border-blue-200">
+                <CardContent className="p-4">
+                  <p className="text-xs text-blue-900 font-medium">💡 Tip:</p>
+                  <p className="text-xs text-blue-800 mt-1">Use UPI, bank transfer, or Paytm to settle payments. Mark as settled once paid.</p>
+                </CardContent>
+              </Card>
             </>
           )}
 

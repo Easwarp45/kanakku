@@ -556,10 +556,11 @@ export function useRemoveGroupMember() {
       // Invalidate all groups to update missing member count
       queryClient.invalidateQueries({ queryKey: ['groups'], exact: false });
       
-      // Refetch member list immediately
-      queryClient.refetchQueries({ queryKey: ['group-members', variables.groupId] });
+      // Refetch member list immediately with force
+      queryClient.refetchQueries({ queryKey: ['group-members', variables.groupId], type: 'active' });
+      queryClient.refetchQueries({ queryKey: ['group-balances', variables.groupId], type: 'active' });
       
-      toast.success('Member removed from group');
+      toast.success('Member removed successfully');
     },
     onError: (error) => {
       const msg = error instanceof Error ? error.message : 'Failed to remove member';
@@ -593,8 +594,8 @@ export function useGroupChats(groupId: string | undefined) {
       return data || [];
     },
     enabled: !!groupId,
-    staleTime: 1000 * 30, // 30 seconds
-    refetchInterval: 30000, // Poll every 30 seconds for new messages (reduced from 2s)
+    staleTime: 1000 * 5, // 5 seconds - reduced for better real-time feel
+    refetchInterval: 5000, // Poll every 5 seconds for new messages
   });
 }
 
@@ -634,11 +635,15 @@ export function useSendGroupChat() {
       return data;
     },
     onSuccess: (_, variables) => {
+      // Invalidate chat cache and immediately refetch to show new message
       queryClient.invalidateQueries({ queryKey: ['group-chats', variables.groupId] });
+      // Refetch immediately for real-time feedback
+      queryClient.refetchQueries({ queryKey: ['group-chats', variables.groupId] });
     },
     onError: (error) => {
       const msg = error instanceof Error ? error.message : 'Failed to send message';
       console.error('Chat error:', msg);
+      throw error;
     },
   });
 }
