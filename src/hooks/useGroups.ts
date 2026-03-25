@@ -538,26 +538,27 @@ export function useRemoveGroupMember() {
       if (adminError) throw adminError;
       if (!adminCheck?.is_admin) throw new Error('Only group admins can remove members');
 
-      // Delete the member
+      // Delete the member - using member ID (group_members.id)
       const { error: deleteError } = await supabase
         .from('group_members')
         .delete()
-        .eq('group_id', input.groupId)
         .eq('id', input.memberId);
 
       if (deleteError) throw deleteError;
+
+      return input.memberId;
     },
-    onSuccess: async (_data, variables) => {
-      // Clear the cache for this group's members and balances
+    onSuccess: async (deletedMemberId, variables) => {
+      // Immediately remove from cache to show instant UI update
       queryClient.setQueryData(['group-members', variables.groupId], (oldData: any) => {
-        // Remove the deleted member from cache
         if (Array.isArray(oldData)) {
-          return oldData;
+          // Filter out the deleted member by ID
+          return oldData.filter((member: any) => member.id !== deletedMemberId);
         }
         return oldData;
       });
-      
-      // Force invalidate with exact match only
+
+      // Clear all related caches
       queryClient.invalidateQueries({ 
         queryKey: ['group-members', variables.groupId], 
         exact: true 
@@ -571,16 +572,21 @@ export function useRemoveGroupMember() {
         exact: true 
       });
       
-      // Refetch immediately and wait for completion
+      // Wait a bit for database to sync, then force refetch from server
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       try {
-        await queryClient.refetchQueries({ 
+        const memberQueryPromise = queryClient.refetchQueries({ 
           queryKey: ['group-members', variables.groupId], 
           type: 'active' 
         });
-        await queryClient.refetchQueries({ 
+        
+        const balanceQueryPromise = queryClient.refetchQueries({ 
           queryKey: ['group-balances', variables.groupId], 
           type: 'active' 
         });
+
+        await Promise.all([memberQueryPromise, balanceQueryPromise]);
       } catch (error) {
         console.error('Error refetching after member removal:', error);
       }
