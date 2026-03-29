@@ -56,26 +56,77 @@ export function useGroups() {
 }
 
 // ██████████████████████████████████████████████████████████████
-// CRITICAL: Poll membership status every 5 seconds.
-// Why? Supabase Realtime will NOT deliver DELETE events to a user
-// who has already lost their RLS SELECT access on group_members.
-// So we can't rely on real-time events to detect removal.
-// Instead we call the SECURITY DEFINER RPC `check_my_group_membership`
-// which always reflects the true DB state, bypassing RLS safely.
+// Real-time member removal detection via WebSocket notifications
+// Instead of polling, we subscribe to member_removal_notifications table.
+// When a member is removed, a trigger inserts a notification that the
+// removed user CAN see (via RLS), and we get an instant real-time event.
 // ██████████████████████████████████████████████████████████████
+export function useMemberRemovalListener(
+  groupId: string | undefined,
+  onRemoved: () => void
+) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const hasSubscribed = useRef(false);
+
+  useEffect(() => {
+    if (!groupId || !user || hasSubscribed.current) return;
+
+    console.log(`🔌 Setting up member removal listener for group ${groupId}`);
+    hasSubscribed.current = true;
+
+    const channel = supabase.channel(`removal-notifications-${groupId}-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'member_removal_notifications',
+          filter: `removed_user_id=eq.${user.id}`,
+        },
+        (payload: any) => {
+          console.log('🚫 Member removal notification received:', payload);
+
+          // Only act if the notification is for this group
+          if (payload.new.group_id === groupId) {
+            console.log(`⚠️ User ${user.id} was removed from group ${groupId}`);
+
+            // Clear all group-related caches
+            queryClient.invalidateQueries({ queryKey: ['groups'] });
+            queryClient.removeQueries({ queryKey: ['group', groupId] });
+            queryClient.removeQueries({ queryKey: ['group-members', groupId] });
+            queryClient.removeQueries({ queryKey: ['group-chats', groupId] });
+            queryClient.removeQueries({ queryKey: ['group-expenses', groupId] });
+
+            // Trigger the removal callback
+            onRemoved();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log(`🔌 Cleaning up member removal listener for group ${groupId}`);
+      hasSubscribed.current = false;
+      supabase.removeChannel(channel);
+    };
+  }, [groupId, user, queryClient, onRemoved]);
+}
+
+// Fallback: Check membership via RPC (used on mount, not for polling)
+// This is lighter weight than the old polling approach - only called once
 export function useCheckMyMembership(groupId: string | undefined) {
   const { user } = useAuth();
 
   return useQuery({
     queryKey: ['my-membership', groupId, user?.id],
     queryFn: async () => {
-      if (!groupId || !user) return true; // default to true when not set up
+      if (!groupId || !user) return true;
 
       const { data, error } = await supabase
         .rpc('check_my_group_membership', { group_uuid: groupId });
 
       if (error) {
-        // If RPC doesn't exist yet or errors, fall back to a direct query
         console.warn('check_my_group_membership RPC error, falling back:', error.message);
         const { data: fallback } = await supabase
           .from('group_members')
@@ -83,15 +134,14 @@ export function useCheckMyMembership(groupId: string | undefined) {
           .eq('group_id', groupId)
           .eq('user_id', user.id)
           .maybeSingle();
-        return fallback !== null; // true = still a member
+        return fallback !== null;
       }
 
       return data as boolean;
     },
     enabled: !!groupId && !!user,
-    staleTime: 0,              // always re-fetch (never treat as fresh)
-    refetchInterval: 5000,     // poll every 5 seconds
-    refetchIntervalInBackground: true, // keep polling even if tab is in background
+    staleTime: 1000 * 60 * 5, // 5 minutes - only used for initial check, not polling
+    refetchInterval: false,   // NO POLLING - real-time handles it
   });
 }
 

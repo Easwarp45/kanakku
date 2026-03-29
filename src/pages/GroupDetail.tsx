@@ -24,16 +24,17 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { 
-  useGroup, 
-  useGroupMembers, 
-  useGroupExpenses, 
+import {
+  useGroup,
+  useGroupMembers,
+  useGroupExpenses,
   useGroupBalances,
   useLeaveGroup,
   useRemoveGroupMember,
   useGroupChats,
   useSendGroupChat,
-  useCheckMyMembership
+  useCheckMyMembership,
+  useMemberRemovalListener
 } from '@/hooks/useGroups';
 import { useAuth } from '@/hooks/useAuth';
 import { CATEGORY_CONFIG } from '@/types/expense';
@@ -69,10 +70,20 @@ export default function GroupDetail() {
   const removeGroupMember = useRemoveGroupMember();
   const sendGroupChat = useSendGroupChat();
 
-  // Poll membership every 5 seconds — the definitive kick detection.
-  // Supabase Realtime does NOT deliver DELETE events to users who have lost
-  // their RLS access, so we cannot rely on real-time. This SECURITY DEFINER
-  // RPC call bypasses RLS and always reflects current DB truth.
+  // WebSocket-based real-time member removal detection
+  // When removed, the DB trigger creates a notification that we receive instantly
+  const handleRemoval = () => {
+    if (!removed) {
+      console.log('🚫 Real-time removal notification received');
+      setRemoved(true);
+      toast.error('You were removed from this group');
+      setTimeout(() => navigate('/groups'), 2000);
+    }
+  };
+
+  useMemberRemovalListener(id, handleRemoval);
+
+  // Check membership on mount (fallback/initial check, not polling)
   const { data: isMember } = useCheckMyMembership(id);
 
   const [copied, setCopied] = useState(false);
@@ -82,14 +93,13 @@ export default function GroupDetail() {
 
   const isAdmin = group && user && group.created_by === user.id;
 
-  // PRIMARY kick detection: fires when the polling hook detects removal.
-  // isMember starts as undefined (loading), then becomes true/false.
-  // We only act when it explicitly becomes false (not undefined).
+  // Initial membership check (fires once on mount)
+  // If isMember is false from the start, user shouldn't be here
   useEffect(() => {
     if (isMember === false && !removed) {
-      console.log('🚫 Membership polling detected removal from group');
+      console.log('🚫 Initial membership check failed - user not a member');
       setRemoved(true);
-      toast.error('You were removed from this group');
+      toast.error('You are not a member of this group');
       setTimeout(() => navigate('/groups'), 2000);
     }
   }, [isMember, removed, navigate]);

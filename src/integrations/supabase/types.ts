@@ -271,6 +271,38 @@ export type Database = {
           },
         ]
       }
+      member_removal_notifications: {
+        Row: {
+          id: string
+          group_id: string
+          removed_user_id: string
+          removed_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          group_id: string
+          removed_user_id: string
+          removed_by: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          group_id?: string
+          removed_user_id?: string
+          removed_by?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_removal_notifications_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       groups: {
         Row: {
           created_at: string
