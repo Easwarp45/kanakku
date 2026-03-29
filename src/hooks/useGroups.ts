@@ -51,11 +51,50 @@ export function useGroups() {
       return data as Group[];
     },
     enabled: !!user,
-    staleTime: 1000 * 60 * 10, // 10 minutes
+    staleTime: 1000 * 30, // 30 seconds – ensures removal is reflected quickly
   });
 }
 
-// Fetch single group
+// ██████████████████████████████████████████████████████████████
+// CRITICAL: Poll membership status every 5 seconds.
+// Why? Supabase Realtime will NOT deliver DELETE events to a user
+// who has already lost their RLS SELECT access on group_members.
+// So we can't rely on real-time events to detect removal.
+// Instead we call the SECURITY DEFINER RPC `check_my_group_membership`
+// which always reflects the true DB state, bypassing RLS safely.
+// ██████████████████████████████████████████████████████████████
+export function useCheckMyMembership(groupId: string | undefined) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['my-membership', groupId, user?.id],
+    queryFn: async () => {
+      if (!groupId || !user) return true; // default to true when not set up
+
+      const { data, error } = await supabase
+        .rpc('check_my_group_membership', { group_uuid: groupId });
+
+      if (error) {
+        // If RPC doesn't exist yet or errors, fall back to a direct query
+        console.warn('check_my_group_membership RPC error, falling back:', error.message);
+        const { data: fallback } = await supabase
+          .from('group_members')
+          .select('id')
+          .eq('group_id', groupId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+        return fallback !== null; // true = still a member
+      }
+
+      return data as boolean;
+    },
+    enabled: !!groupId && !!user,
+    staleTime: 0,              // always re-fetch (never treat as fresh)
+    refetchInterval: 5000,     // poll every 5 seconds
+    refetchIntervalInBackground: true, // keep polling even if tab is in background
+  });
+}
+
 export function useGroup(id: string | undefined) {
   const { user } = useAuth();
 
@@ -74,7 +113,7 @@ export function useGroup(id: string | undefined) {
       return data as Group | null;
     },
     enabled: !!id && !!user,
-    staleTime: 1000 * 60 * 15, // 15 minutes
+    staleTime: 1000 * 60 * 1, // 1 minute
   });
 }
 
@@ -156,42 +195,64 @@ export function useGroupMembers(groupId: string | undefined) {
           table: 'group_members',
           filter: `group_id=eq.${groupId}`,
         },
-        (payload: any) => {
+        async (payload: any) => {
           console.log('📢 Real-time member change detected:', payload);
-          
-          // Handle deletions - someone was removed
+
           if (payload.eventType === 'DELETE') {
+            // old_record.user_id may be null due to Supabase RLS on DELETE — handled below
             const removedUserId = payload.old_record?.user_id;
-            console.log(`Member removed: ${removedUserId}, Current user: ${user?.id}`);
-            
-            // If current user was removed, they need to see an error
-            if (removedUserId === user?.id) {
-              console.log('⚠️ Current user was removed from group');
-              // Force immediate refetch to reflect removal
-              queryClient.invalidateQueries({ queryKey: ['group-members', groupId], exact: true });
-              // This will trigger the useEffect in GroupDetail that checks membership
+            console.log(`Member deleted: ${removedUserId ?? '(hidden by RLS)'}, Current user: ${user?.id}`);
+
+            if (removedUserId && removedUserId === user?.id) {
+              // We know for sure the current user was removed
+              console.log('⚠️ Current user was removed from group (from payload)');
+              queryClient.invalidateQueries({ queryKey: ['groups'] });
+              queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+              queryClient.removeQueries({ queryKey: ['group-members', groupId] });
+              queryClient.removeQueries({ queryKey: ['group-chats', groupId] });
+              return; // No need to refetch member list — user has been kicked
             } else {
-              // Someone else was removed, just refetch the member list
-              console.log(`User ${removedUserId} was removed by admin`);
+              // Someone else was removed, or RLS hid the user_id
               queryClient.invalidateQueries({ queryKey: ['group-members', groupId], exact: true });
             }
-          } 
-          // Handle insertions - new member added
-          else if (payload.eventType === 'INSERT') {
+          } else if (payload.eventType === 'INSERT') {
             console.log('New member added');
             queryClient.invalidateQueries({ queryKey: ['group-members', groupId], exact: true });
-          } 
-          // Handle updates - member details changed
-          else if (payload.eventType === 'UPDATE') {
+          } else if (payload.eventType === 'UPDATE') {
             console.log('Member details updated');
             queryClient.invalidateQueries({ queryKey: ['group-members', groupId], exact: true });
           }
-          
+
+          // --- Fallback: DB-level membership re-check ---
+          // Runs after every event in case RLS hid old_record.user_id on DELETE.
+          // This is a lightweight query (single row lookup) so it won't hurt performance.
+          if (user?.id) {
+            try {
+              const { data: selfMembership } = await supabase
+                .from('group_members')
+                .select('id')
+                .eq('group_id', groupId)
+                .eq('user_id', user.id)
+                .maybeSingle();
+
+              if (!selfMembership) {
+                // Current user is no longer a member — clear all group-related caches
+                console.log('⚠️ Current user is no longer a member (confirmed by DB check)');
+                queryClient.invalidateQueries({ queryKey: ['groups'] });
+                queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+                queryClient.removeQueries({ queryKey: ['group-members', groupId] });
+                queryClient.removeQueries({ queryKey: ['group-chats', groupId] });
+                return;
+              }
+            } catch (err) {
+              console.error('Error during membership re-check:', err);
+            }
+          }
+
           // Force a refetch to ensure the UI updates immediately
-          queryClient.refetchQueries({ 
-            queryKey: ['group-members', groupId], 
+          queryClient.refetchQueries({
+            queryKey: ['group-members', groupId],
             type: 'active',
-            cancelRefetch: false
           });
         }
       )

@@ -32,7 +32,8 @@ import {
   useLeaveGroup,
   useRemoveGroupMember,
   useGroupChats,
-  useSendGroupChat
+  useSendGroupChat,
+  useCheckMyMembership
 } from '@/hooks/useGroups';
 import { useAuth } from '@/hooks/useAuth';
 import { CATEGORY_CONFIG } from '@/types/expense';
@@ -68,6 +69,12 @@ export default function GroupDetail() {
   const removeGroupMember = useRemoveGroupMember();
   const sendGroupChat = useSendGroupChat();
 
+  // Poll membership every 5 seconds — the definitive kick detection.
+  // Supabase Realtime does NOT deliver DELETE events to users who have lost
+  // their RLS access, so we cannot rely on real-time. This SECURITY DEFINER
+  // RPC call bypasses RLS and always reflects current DB truth.
+  const { data: isMember } = useCheckMyMembership(id);
+
   const [copied, setCopied] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
@@ -75,23 +82,42 @@ export default function GroupDetail() {
 
   const isAdmin = group && user && group.created_by === user.id;
 
-  // Check if current user is still a member of the group
+  // PRIMARY kick detection: fires when the polling hook detects removal.
+  // isMember starts as undefined (loading), then becomes true/false.
+  // We only act when it explicitly becomes false (not undefined).
   useEffect(() => {
-    if (!loadingMembers && members.length > 0 && user) {
+    if (isMember === false && !removed) {
+      console.log('🚫 Membership polling detected removal from group');
+      setRemoved(true);
+      toast.error('You were removed from this group');
+      setTimeout(() => navigate('/groups'), 2000);
+    }
+  }, [isMember, removed, navigate]);
+
+  // SECONDARY kick detection: fires when the members list changes
+  // (e.g. real-time event does fire, or members refetch catches the removal).
+  // Runs even when members is empty — after the cache is cleared on removal,
+  // the array becomes [] before the route changes, so we must not skip the check.
+  useEffect(() => {
+    if (!loadingMembers && user && !removed) {
       const isCurrentUserMember = members.some(m => m.user_id === user.id);
-      
-      if (!isCurrentUserMember) {
+
+      // Only redirect if loading finished AND we have some evidence the list was fetched
+      // (i.e. the query ran at least once). An empty list after a fetch = kicked out.
+      if (!isCurrentUserMember && members !== undefined) {
+        // Extra guard: if no members at all AND group is still loading, skip
+        if (members.length === 0 && loadingGroup) return;
+
         console.log('User is not a member of this group - removing access');
         setRemoved(true);
         toast.error('You were removed from this group');
-        
-        // Redirect after a brief delay
+
         setTimeout(() => {
           navigate('/groups');
         }, 2000);
       }
     }
-  }, [members, user, loadingMembers, navigate]);
+  }, [members, user, loadingMembers, loadingGroup, navigate, removed]);
 
   const copyInviteCode = () => {
     if (group?.invite_code) {
@@ -164,10 +190,11 @@ export default function GroupDetail() {
     );
   }
 
-  if (!group) {
+  if (!loadingGroup && !group) {
+    // group is null after loading = user lost access (RLS denied the row)
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Group not found</p>
+        <p className="text-muted-foreground">Group not found or access denied</p>
         <Button onClick={() => navigate('/groups')}>Go back</Button>
       </div>
     );
@@ -618,28 +645,34 @@ export default function GroupDetail() {
             )}
           </div>
 
-          {/* Message Input */}
-          <div className="p-4 border-t bg-background flex gap-2">
-            <Input
-              placeholder="Type a message..."
-              value={chatMessage}
-              onChange={(e) => setChatMessage(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-              className="flex-1"
-            />
-            <Button 
-              size="icon" 
-              onClick={handleSendMessage}
-              disabled={!chatMessage.trim() || sendGroupChat.isPending}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
+          {/* Message Input - hidden for non-members */}
+          {members.some(m => m.user_id === user?.id) ? (
+            <div className="p-4 border-t bg-background flex gap-2">
+              <Input
+                placeholder="Type a message..."
+                value={chatMessage}
+                onChange={(e) => setChatMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                className="flex-1"
+              />
+              <Button 
+                size="icon" 
+                onClick={handleSendMessage}
+                disabled={!chatMessage.trim() || sendGroupChat.isPending}
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="p-4 border-t bg-background text-center text-sm text-muted-foreground">
+              You are no longer a member of this group.
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 

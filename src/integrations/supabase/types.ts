@@ -404,6 +404,14 @@ export type Database = {
         Args: { group_uuid: string; user_uuid: string }
         Returns: boolean
       }
+      check_my_group_membership: {
+        Args: { group_uuid: string }
+        Returns: boolean
+      }
+      get_my_group_ids: {
+        Args: Record<PropertyKey, never>
+        Returns: Array<{ group_id: string }>
+      }
     }
     Enums: {
       expense_category:

@@ -35,7 +35,7 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 10, // 10 minutes default
+      staleTime: 1000 * 60 * 2, // 2 minutes default (was 10 minutes)
       gcTime: 1000 * 60 * 60, // 1 hour (formerly cacheTime) - keep cache longer
       retry: (failureCount, error) => {
         // Don't retry if offline or auth error (401, 403)
