@@ -16,7 +16,22 @@ import type { ExpenseCategory } from '@/types/expense';
 import { generateInviteCode, formatInviteCode } from '@/lib/invite-code';
 import { toast } from 'sonner';
 
-// Fetch all groups user is member of
+/**
+ * Fetches all groups that the current user is a member of.
+ *
+ * This hook performs a two-step query:
+ * 1. Fetches user's group memberships from group_members table
+ * 2. Fetches the full group details for those memberships
+ *
+ * @returns {UseQueryResult<Group[]>} React Query result with array of groups
+ *
+ * @example
+ * ```tsx
+ * const { data: groups, isLoading } = useGroups();
+ * if (isLoading) return <Spinner />;
+ * return <GroupList groups={groups} />;
+ * ```
+ */
 export function useGroups() {
   const { user } = useAuth();
 
@@ -55,12 +70,32 @@ export function useGroups() {
   });
 }
 
-// ██████████████████████████████████████████████████████████████
-// Real-time member removal detection via WebSocket notifications
-// Instead of polling, we subscribe to member_removal_notifications table.
-// When a member is removed, a trigger inserts a notification that the
-// removed user CAN see (via RLS), and we get an instant real-time event.
-// ██████████████████████████████████████████████████████████████
+/**
+ * Real-time WebSocket listener for member removal notifications.
+ *
+ * Sets up a Supabase Realtime subscription to detect when the current user
+ * is removed from a group. Uses the member_removal_notifications table which
+ * is populated by a database trigger on group_members DELETE.
+ *
+ * **Why this approach?**
+ * Supabase Realtime does NOT deliver DELETE events to users who have lost
+ * RLS SELECT access. The notification table has RLS that allows removed users
+ * to see their own removal notifications, enabling instant real-time detection.
+ *
+ * @param {string | undefined} groupId - The group ID to monitor (undefined = no subscription)
+ * @param {() => void} onRemoved - Callback invoked when user is removed from the group
+ *
+ * @example
+ * ```tsx
+ * const handleRemoval = () => {
+ *   toast.error('You were removed from this group');
+ *   navigate('/groups');
+ * };
+ * useMemberRemovalListener(groupId, handleRemoval);
+ * ```
+ *
+ * @see {@link https://supabase.com/docs/guides/realtime | Supabase Realtime}
+ */
 export function useMemberRemovalListener(
   groupId: string | undefined,
   onRemoved: () => void
@@ -113,8 +148,28 @@ export function useMemberRemovalListener(
   }, [groupId, user, queryClient, onRemoved]);
 }
 
-// Fallback: Check membership via RPC (used on mount, not for polling)
-// This is lighter weight than the old polling approach - only called once
+/**
+ * Checks if the current user is a member of a specific group.
+ *
+ * Uses a SECURITY DEFINER RPC function that bypasses RLS to check membership.
+ * This is safe because the RPC only returns information about the calling user.
+ *
+ * **Note:** This hook does NOT poll - it performs a single check on mount and
+ * caches the result for 5 minutes. Real-time changes are handled by
+ * `useMemberRemovalListener`.
+ *
+ * @param {string | undefined} groupId - The group ID to check membership for
+ * @returns {UseQueryResult<boolean>} React Query result with membership status
+ *
+ * @example
+ * ```tsx
+ * const { data: isMember } = useCheckMyMembership(groupId);
+ *
+ * if (isMember === false) {
+ *   navigate('/groups'); // User is not a member
+ * }
+ * ```
+ */
 export function useCheckMyMembership(groupId: string | undefined) {
   const { user } = useAuth();
 
@@ -145,6 +200,19 @@ export function useCheckMyMembership(groupId: string | undefined) {
   });
 }
 
+/**
+ * Fetches details for a single group by ID.
+ *
+ * @param {string | undefined} id - The group ID to fetch
+ * @returns {UseQueryResult<Group | null>} React Query result with group details or null
+ *
+ * @example
+ * ```tsx
+ * const { data: group, isLoading } = useGroup(groupId);
+ * if (!group) return <NotFound />;
+ * return <GroupHeader group={group} />;
+ * ```
+ */
 export function useGroup(id: string | undefined) {
   const { user } = useAuth();
 
@@ -167,7 +235,31 @@ export function useGroup(id: string | undefined) {
   });
 }
 
-// Fetch group members with profiles + real-time updates
+/**
+ * Fetches group members with their profile information and sets up real-time synchronization.
+ *
+ * This hook:
+ * 1. Fetches all members of a group from group_members table
+ * 2. Joins with profiles table to get display names and avatars
+ * 3. Sets up a Supabase Realtime subscription for live updates
+ * 4. Automatically handles member additions, removals, and profile changes
+ * 5. Clears cache and redirects if current user is removed
+ *
+ * @param {string | undefined} groupId - The group ID to fetch members for
+ * @returns {UseQueryResult<GroupMember[]>} React Query result with array of members and their profiles
+ *
+ * @example
+ * ```tsx
+ * const { data: members = [] } = useGroupMembers(groupId);
+ * return members.map(member => (
+ *   <MemberCard
+ *     key={member.id}
+ *     name={member.profile?.display_name || member.nickname}
+ *     isAdmin={member.is_admin}
+ *   />
+ * ));
+ * ```
+ */
 export function useGroupMembers(groupId: string | undefined) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
