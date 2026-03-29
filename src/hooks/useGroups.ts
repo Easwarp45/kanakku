@@ -819,54 +819,43 @@ export function useRemoveGroupMember() {
       if (adminError) throw adminError;
       if (!adminCheck?.is_admin) throw new Error('Only group admins can remove members');
 
-      // Delete the member - using member ID (group_members.id)
-      const { error: deleteError } = await supabase
+      // Delete the member and RETURN the deleted row.
+      // With RLS, delete can otherwise fail silently (0 rows) without throwing.
+      const { data: deletedRows, error: deleteError } = await supabase
         .from('group_members')
         .delete()
-        .eq('id', input.memberId);
+        .eq('id', input.memberId)
+        .eq('group_id', input.groupId)
+        .neq('user_id', user.id)
+        .select('id,user_id,group_id');
 
       if (deleteError) throw deleteError;
 
-      return input.memberId;
+      if (!deletedRows || deletedRows.length === 0) {
+        throw new Error('Member was not removed. Please try again.');
+      }
+
+      return deletedRows[0] as { id: string; user_id: string; group_id: string };
     },
-    onSuccess: async (deletedMemberId, variables) => {
-      // Step 1: Immediately update cache to remove the member from UI
-      const previousData = queryClient.getQueryData(['group-members', variables.groupId]);
-      
+    onSuccess: async (deletedMember, variables) => {
+      // Immediately remove from cache so UI updates instantly.
       queryClient.setQueryData(['group-members', variables.groupId], (oldData: any) => {
         if (Array.isArray(oldData)) {
-          // Filter out the deleted member by ID - this removes it from UI instantly
-          const filtered = oldData.filter((member: any) => member.id !== deletedMemberId);
-          console.log(`Removed member ${deletedMemberId}. Count: ${oldData.length} -> ${filtered.length}`);
+          const filtered = oldData.filter((member: any) => member.id !== deletedMember.id);
           return filtered;
         }
         return oldData;
       });
 
-      // Step 2: Mark balances as stale so they recalculate from fresh member list
-      queryClient.invalidateQueries({ 
-        queryKey: ['group-balances', variables.groupId], 
-        exact: true 
-      });
+      // Keep server and all tabs in sync.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['group-members', variables.groupId], exact: true }),
+        queryClient.invalidateQueries({ queryKey: ['group-balances', variables.groupId], exact: true }),
+        queryClient.invalidateQueries({ queryKey: ['groups'] }),
+        queryClient.refetchQueries({ queryKey: ['group-members', variables.groupId], type: 'active' }),
+        queryClient.refetchQueries({ queryKey: ['group-balances', variables.groupId], type: 'active' }),
+      ]);
 
-      // Step 3: Wait longer for database replication, then soft-refetch
-      // This prevents the member from reappearing due to a race condition
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      try {
-        // Refetch only if there are active subscribers to avoid unnecessary requests
-        // This will verify the deletion was successful on the server
-        const balanceQueryPromise = queryClient.refetchQueries({ 
-          queryKey: ['group-balances', variables.groupId], 
-          type: 'active' 
-        });
-
-        await balanceQueryPromise;
-      } catch (error) {
-        console.error('Error refetching after member removal:', error);
-        // Don't throw - we've already removed from UI, this is just verification
-      }
-      
       toast.success('Member removed successfully');
     },
     onError: (error) => {
