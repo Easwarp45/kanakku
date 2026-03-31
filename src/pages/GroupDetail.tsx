@@ -6,7 +6,6 @@ import {
   Plus, 
   Users, 
   Share2, 
-  IndianRupee,
   Receipt,
   ArrowRightLeft,
   Copy,
@@ -37,6 +36,7 @@ import {
   useMemberRemovalListener
 } from '@/hooks/useGroups';
 import { useAuth } from '@/hooks/useAuth';
+import { useCurrency } from '@/hooks/useCurrency';
 import { CATEGORY_CONFIG } from '@/types/expense';
 import { cn } from '@/lib/utils';
 import BottomNav from '@/components/layout/BottomNav';
@@ -60,6 +60,7 @@ export default function GroupDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useAuth();
+  const { formatCurrency } = useCurrency();
   
   const { data: group, isLoading: loadingGroup } = useGroup(id);
   const { data: members = [], isLoading: loadingMembers } = useGroupMembers(id);
@@ -137,11 +138,38 @@ export default function GroupDetail() {
   }, [members, user, loadingMembers, loadingGroup, navigate]);
 
   const copyInviteCode = () => {
-    if (group?.invite_code) {
-      navigator.clipboard.writeText(group.invite_code);
-      setCopied(true);
-      toast.success('Invite code copied!');
-      setTimeout(() => setCopied(false), 2000);
+    if (!group?.invite_code) return;
+
+    const code = group.invite_code;
+
+    // navigator.clipboard requires a secure context (HTTPS).
+    // Fall back to the legacy execCommand approach for HTTP / localhost.
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(code).then(() => {
+        setCopied(true);
+        toast.success('Invite code copied!');
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(() => {
+        toast.error('Failed to copy. Please copy manually.');
+      });
+    } else {
+      // Legacy fallback
+      const textarea = document.createElement('textarea');
+      textarea.value = code;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      if (ok) {
+        setCopied(true);
+        toast.success('Invite code copied!');
+        setTimeout(() => setCopied(false), 2000);
+      } else {
+        toast.error('Failed to copy. Please copy manually.');
+      }
     }
   };
 
@@ -275,10 +303,7 @@ export default function GroupDetail() {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground mb-1">Total Expenses</p>
-            <p className="text-xl font-bold flex items-center gap-0.5">
-              <IndianRupee className="h-5 w-5" />
-              {totalExpenses.toLocaleString('en-IN')}
-            </p>
+            <p className="text-xl font-bold">{formatCurrency(totalExpenses, { maximumFractionDigits: 0 })}</p>
           </CardContent>
         </Card>
         <Card className={cn(
@@ -290,9 +315,7 @@ export default function GroupDetail() {
               'text-xl font-bold flex items-center gap-0.5',
               myBalance >= 0 ? 'text-green-600' : 'text-red-600'
             )}>
-              {myBalance >= 0 ? '+' : '-'}
-              <IndianRupee className="h-5 w-5" />
-              {Math.abs(myBalance).toLocaleString('en-IN')}
+              {myBalance >= 0 ? '+' : '-'}{formatCurrency(Math.abs(myBalance), { maximumFractionDigits: 0 })}
             </p>
           </CardContent>
         </Card>
@@ -334,7 +357,7 @@ export default function GroupDetail() {
         <TabsContent value="expenses" className="p-4 space-y-3">
           <div className="flex justify-between items-center mb-2">
             <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
-              Total Expenses: <span className="text-primary">₹{expenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString('en-IN')}</span>
+              Total Expenses: <span className="text-primary">{formatCurrency(expenses.reduce((sum, e) => sum + e.amount, 0), { maximumFractionDigits: 0 })}</span>
             </h3>
           </div>
           {expenses.length === 0 ? (
@@ -372,10 +395,7 @@ export default function GroupDetail() {
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="font-bold text-primary flex items-center justify-end gap-1 text-sm">
-                          <IndianRupee className="h-3.5 w-3.5" />
-                          {expense.amount.toLocaleString('en-IN')}
-                        </p>
+                        <p className="font-bold text-primary text-sm">{formatCurrency(expense.amount, { maximumFractionDigits: 0 })}</p>
                         <p className="text-xs text-muted-foreground mt-1">{expense.category}</p>
                       </div>
                     </div>
@@ -433,12 +453,8 @@ export default function GroupDetail() {
                         <div className="flex items-center justify-between bg-background/50 rounded-lg p-3">
                           <div className="flex-1">
                             <p className="text-xs text-muted-foreground">Amount to settle</p>
-                            <p className={cn(
-                              'font-bold text-lg flex items-center gap-1',
-                              isYourDebt ? 'text-red-600' : 'text-green-600'
-                            )}>
-                              <IndianRupee className="h-4 w-4" />
-                              {debt.amount.toLocaleString('en-IN')}
+                            <p className={cn('font-bold text-lg', isYourDebt ? 'text-red-600' : 'text-green-600')}>
+                              {formatCurrency(debt.amount, { maximumFractionDigits: 0 })}
                             </p>
                           </div>
                           {isYourDebt && (
@@ -495,8 +511,7 @@ export default function GroupDetail() {
                     'font-semibold flex items-center text-sm',
                     balance.balance >= 0 ? 'text-green-600' : 'text-red-600'
                   )}>
-                    <IndianRupee className="h-3.5 w-3.5" />
-                    {Math.abs(balance.balance).toLocaleString('en-IN')}
+                    {formatCurrency(Math.abs(balance.balance), { maximumFractionDigits: 0 })}
                   </span>
                 </div>
               </CardContent>

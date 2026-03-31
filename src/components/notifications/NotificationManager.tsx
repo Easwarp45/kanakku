@@ -3,11 +3,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useBudgetsWithSpent } from '@/hooks/useBudgets';
 import { useGroups } from '@/hooks/useGroups';
+import { useCurrency } from '@/hooks/useCurrency';
 import { supabase } from '@/integrations/supabase/client';
 import { CATEGORY_CONFIG } from '@/types/expense';
 
 export function NotificationManager() {
   const { user } = useAuth();
+  const { formatCurrency } = useCurrency();
   const { permission, prefs, sendNotification, shouldNotify, markNotified } = useNotifications();
   const { data: budgets } = useBudgetsWithSpent();
   const { data: groups } = useGroups();
@@ -21,19 +23,19 @@ export function NotificationManager() {
 
       if (budget.isOverBudget && shouldNotify(`budget_over_${budget.id}`)) {
         sendNotification('⚠️ Budget Exceeded!', {
-          body: `You've spent ₹${budget.spent.toLocaleString('en-IN')} on ${categoryLabel}, exceeding your ₹${budget.amount.toLocaleString('en-IN')} budget.`,
+          body: `You've spent ${formatCurrency(budget.spent, { maximumFractionDigits: 0 })} on ${categoryLabel}, exceeding your ${formatCurrency(budget.amount, { maximumFractionDigits: 0 })} budget.`,
           tag: `budget_over_${budget.id}`,
         });
         markNotified(`budget_over_${budget.id}`);
       } else if (budget.isNearLimit && shouldNotify(`budget_near_${budget.id}`)) {
         sendNotification('📊 Budget Alert', {
-          body: `You've used ${Math.round(budget.percentage)}% of your ${categoryLabel} budget (₹${budget.spent.toLocaleString('en-IN')} / ₹${budget.amount.toLocaleString('en-IN')}).`,
+          body: `You've used ${Math.round(budget.percentage)}% of your ${categoryLabel} budget (${formatCurrency(budget.spent, { maximumFractionDigits: 0 })} / ${formatCurrency(budget.amount, { maximumFractionDigits: 0 })}).`,
           tag: `budget_near_${budget.id}`,
         });
         markNotified(`budget_near_${budget.id}`);
       }
     });
-  }, [budgets, permission, prefs.budgetAlerts, sendNotification, shouldNotify, markNotified]);
+  }, [budgets, permission, prefs.budgetAlerts, sendNotification, shouldNotify, markNotified, formatCurrency]);
 
   // Settlement reminders
   useEffect(() => {
@@ -53,7 +55,7 @@ export function NotificationManager() {
         const totalOwed = unsettledSplits.reduce((sum, s) => sum + Number(s.amount), 0);
         if (totalOwed > 0) {
           sendNotification('💰 Settlement Reminder', {
-            body: `You have ₹${totalOwed.toLocaleString('en-IN')} in unsettled expenses across ${unsettledSplits.length} split(s). Settle up to keep things clear!`,
+            body: `You have ${formatCurrency(totalOwed, { maximumFractionDigits: 0 })} in unsettled expenses across ${unsettledSplits.length} split(s). Settle up to keep things clear!`,
             tag: 'settlement_reminder',
           });
           markNotified('settlement_reminder');
@@ -62,7 +64,7 @@ export function NotificationManager() {
     };
 
     checkSettlements();
-  }, [groups, permission, prefs.settlementReminders, user, sendNotification, shouldNotify, markNotified]);
+  }, [groups, permission, prefs.settlementReminders, user, sendNotification, shouldNotify, markNotified, formatCurrency]);
 
   // Expense logging reminder (check if user hasn't logged today)
   useEffect(() => {

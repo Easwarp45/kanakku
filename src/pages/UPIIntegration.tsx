@@ -7,7 +7,6 @@ import {
   RefreshCw, 
   Check, 
   X, 
-  IndianRupee,
   Zap,
   AlertCircle
 } from 'lucide-react';
@@ -21,9 +20,11 @@ import { CATEGORY_CONFIG } from '@/types/expense';
 import { UPITransaction } from '@/lib/upi-demo';
 import { cn } from '@/lib/utils';
 import BottomNav from '@/components/layout/BottomNav';
+import { useCurrency } from '@/hooks/useCurrency';
 
 export default function UPIIntegration() {
   const navigate = useNavigate();
+  const { formatCurrency } = useCurrency();
   const createExpense = useCreateExpense();
   const {
     pendingTransactions,
@@ -143,10 +144,7 @@ export default function UPIIntegration() {
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="font-semibold flex items-center">
-                              <IndianRupee className="h-4 w-4" />
-                              {tx.amount.toLocaleString('en-IN')}
-                            </p>
+                            <p className="font-semibold">{formatCurrency(tx.amount, { maximumFractionDigits: 0 })}</p>
                             <p className="text-xs text-muted-foreground">
                               {formatDistanceToNow(tx.timestamp, { addSuffix: true })}
                             </p>
@@ -216,10 +214,7 @@ export default function UPIIntegration() {
                         <p className="font-medium text-sm">{tx.merchant}</p>
                       </div>
 
-                      <p className="font-medium text-sm flex items-center">
-                        <IndianRupee className="h-3 w-3" />
-                        {tx.amount.toLocaleString('en-IN')}
-                      </p>
+                      <p className="font-medium text-sm">{formatCurrency(tx.amount, { maximumFractionDigits: 0 })}</p>
                     </div>
                   </CardContent>
                 </Card>

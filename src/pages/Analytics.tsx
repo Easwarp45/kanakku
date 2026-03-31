@@ -10,6 +10,7 @@ import { SkeletonCardLoader } from '@/components/ui/skeleton-loader';
 import BottomNav from '@/components/layout/BottomNav';
 import { useAnalytics, TimePeriod } from '@/hooks/useAnalytics';
 import { useSmartInsights } from '@/hooks/useSmartInsights';
+import { useCurrency } from '@/hooks/useCurrency';
 import { InsightsList } from '@/components/insights';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -32,16 +33,9 @@ const CHART_COLORS = [
 export default function Analytics() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<TimePeriod>('month');
+  const { formatCurrency, formatCompactCurrency } = useCurrency();
   const { data: analytics, isLoading } = useAnalytics(period);
   const { insights, isLoading: insightsLoading } = useSmartInsights();
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
 
   const handleExport = () => {
     if (!analytics) return;
@@ -49,7 +43,7 @@ export default function Analytics() {
     // Create CSV content
     const headers = ['Category', 'Amount', 'Percentage'];
     const rows = analytics.categoryBreakdown.map(cat => 
-      [cat.label, cat.amount.toFixed(2), cat.percentage.toFixed(1) + '%']
+      [cat.label, formatCurrency(cat.amount), cat.percentage.toFixed(1) + '%']
     );
     
     const csvContent = [
@@ -256,7 +250,7 @@ export default function Analytics() {
                           tick={{ fontSize: 12, fill: 'hsl(215, 16%, 47%)' }}
                           tickLine={false}
                           axisLine={false}
-                          tickFormatter={(value) => `₹${value >= 1000 ? (value/1000).toFixed(0) + 'k' : value}`}
+                          tickFormatter={(value) => formatCompactCurrency(value)}
                         />
                         <Tooltip content={<CustomTooltip />} />
                         <Area
@@ -340,7 +334,7 @@ export default function Analytics() {
                         <XAxis 
                           type="number" 
                           tick={{ fontSize: 12, fill: 'hsl(215, 16%, 47%)' }}
-                          tickFormatter={(value) => `₹${value >= 1000 ? (value/1000).toFixed(0) + 'k' : value}`}
+                          tickFormatter={(value) => formatCompactCurrency(value)}
                         />
                         <YAxis 
                           type="category" 
@@ -388,7 +382,7 @@ export default function Analytics() {
                       <XAxis dataKey="label" tick={{ fontSize: 12, fill: 'hsl(215, 16%, 47%)' }} />
                       <YAxis
                         tick={{ fontSize: 12, fill: 'hsl(215, 16%, 47%)' }}
-                        tickFormatter={(value) => `₹${value >= 1000 ? (value / 1000).toFixed(0) + 'k' : value}`}
+                        tickFormatter={(value) => formatCompactCurrency(value)}
                       />
                       <Tooltip formatter={(value: number) => formatCurrency(value)} />
                       <Bar dataKey="amount" radius={[6, 6, 0, 0]}>

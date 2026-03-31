@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
-import { ArrowLeft, Search, Filter, Trash2, IndianRupee, Calendar, Plus } from 'lucide-react';
+import { ArrowLeft, Search, Filter, Trash2, Calendar, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,10 +18,12 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { RefreshIndicator } from '@/components/ui/refresh-indicator';
 import { SkeletonListLoader } from '@/components/ui/skeleton-loader';
 import { cn } from '@/lib/utils';
+import { useCurrency } from '@/hooks/useCurrency';
 import type { DateRange } from 'react-day-picker';
 
 export default function Expenses() {
   const navigate = useNavigate();
+  const { formatCurrency } = useCurrency();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | 'all'>('all');
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -158,10 +160,7 @@ export default function Expenses() {
           <span className="text-sm text-muted-foreground">
             {dateRange?.from ? 'Total for selected range' : 'Total (all time)'}
           </span>
-          <div className="flex items-center text-xl font-bold">
-            <IndianRupee className="h-5 w-5" />
-            {totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-          </div>
+          <div className="text-xl font-bold">{formatCurrency(totalAmount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
         </div>
       </div>
 
@@ -201,10 +200,7 @@ export default function Expenses() {
                   <p className="text-sm text-muted-foreground">{format(new Date(expense.expense_date), 'MMM d')}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold flex items-center">
-                    <IndianRupee className="h-4 w-4" />
-                    {expense.amount.toLocaleString('en-IN')}
-                  </span>
+                  <span className="font-semibold">{formatCurrency(expense.amount, { maximumFractionDigits: 0 })}</span>
                   <Button
                     variant="ghost"
                     size="icon"

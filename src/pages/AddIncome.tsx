@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, Calendar, IndianRupee } from 'lucide-react';
+import { ArrowLeft, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,12 +10,14 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
 import { useCreateIncome } from '@/hooks/useIncome';
+import { useCurrency } from '@/hooks/useCurrency';
 import { INCOME_SOURCE_CONFIG, type IncomeSource } from '@/types/income';
 import { cn } from '@/lib/utils';
 
 export default function AddIncome() {
   const navigate = useNavigate();
   const createIncome = useCreateIncome();
+  const { symbol, convertToBase } = useCurrency();
 
   const [amount, setAmount] = useState('');
   const [source, setSource] = useState<IncomeSource>('salary');
@@ -29,8 +31,10 @@ export default function AddIncome() {
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
 
+    const amountInBaseCurrency = convertToBase(parsedAmount);
+
     await createIncome.mutateAsync({
-      amount: parsedAmount,
+      amount: amountInBaseCurrency,
       source,
       description: description.trim() || undefined,
       income_date: format(date, 'yyyy-MM-dd'),
@@ -57,7 +61,7 @@ export default function AddIncome() {
         <div className="space-y-2">
           <Label htmlFor="amount">Amount</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">{symbol}</span>
             <Input
               id="amount"
               type="number"

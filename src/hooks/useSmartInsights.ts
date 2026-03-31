@@ -2,12 +2,14 @@ import { useMemo } from 'react';
 import { useExpenses } from './useExpenses';
 import { useBudgets } from './useBudgets';
 import { useAuth } from './useAuth';
+import { useCurrency } from './useCurrency';
 import { calculateAnalytics, generateInsights } from '@/lib/insightsEngine';
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
 import type { Insight } from '@/types/insights';
 
 export function useSmartInsights() {
   const { user } = useAuth();
+  const { currency, convertFromBase } = useCurrency();
   const today = new Date();
   const monthStart = startOfMonth(today);
   const monthEnd = endOfMonth(today);
@@ -33,16 +35,22 @@ export function useSmartInsights() {
 
     try {
       // Get total budget
-      const totalBudget = budgets.reduce((sum, budget) => sum + budget.amount, 0) || 0;
+      const totalBudget = budgets.reduce((sum, budget) => sum + convertFromBase(budget.amount), 0) || 0;
 
       // Create category budgets map
       const categoryBudgets: Record<string, number> = {};
       budgets.forEach(budget => {
-        categoryBudgets[budget.category] = budget.amount;
+        categoryBudgets[budget.category] = convertFromBase(budget.amount);
       });
 
       // Calculate previous month total
-      const previousMonthTotal = previousExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+      const previousMonthTotal = previousExpenses.reduce((sum, exp) => sum + convertFromBase(exp.amount), 0);
+
+      // Convert current expenses from INR base to selected display currency
+      const convertedCurrentExpenses = currentExpenses.map(expense => ({
+        ...expense,
+        amount: convertFromBase(expense.amount),
+      }));
 
       // Calculate days in current month
       const daysInMonth = monthEnd.getDate();
@@ -50,19 +58,20 @@ export function useSmartInsights() {
       // Generate insights
       const generatedInsights = generateInsights(
         calculateAnalytics({
-          currentExpenses,
+          currentExpenses: convertedCurrentExpenses,
           previousMonthTotal,
           budget: totalBudget,
           categoryBudgets,
           daysInMonth,
         }),
         {
-          currentExpenses,
+          currentExpenses: convertedCurrentExpenses,
           previousMonthTotal,
           budget: totalBudget,
           categoryBudgets,
           daysInMonth,
-        }
+        },
+        currency
       );
 
       return {
@@ -74,7 +83,7 @@ export function useSmartInsights() {
       console.error('Error generating insights:', error);
       return { insights: [], isLoading: false, isEmpty: true };
     }
-  }, [currentExpenses, previousExpenses, budgets, loadingCurrent, loadingBudgets]);
+  }, [currentExpenses, previousExpenses, budgets, loadingCurrent, loadingBudgets, currency, convertFromBase]);
 
   return { insights, isLoading, isEmpty };
 }

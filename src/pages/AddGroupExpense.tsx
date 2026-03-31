@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, IndianRupee, Calendar, Users } from 'lucide-react';
+import { ArrowLeft, Calendar, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useGroupMembers, useAddGroupExpense } from '@/hooks/useGroups';
 import { useAuth } from '@/hooks/useAuth';
+import { useCurrency } from '@/hooks/useCurrency';
 import { CATEGORY_CONFIG, type ExpenseCategory } from '@/types/expense';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +21,7 @@ export default function AddGroupExpense() {
   const navigate = useNavigate();
   const { id: groupId } = useParams();
   const { user } = useAuth();
+  const { symbol, formatLocalCurrency, convertToBase } = useCurrency();
   const { data: members = [] } = useGroupMembers(groupId);
   const addExpense = useAddGroupExpense();
 
@@ -62,16 +64,19 @@ export default function AddGroupExpense() {
   const handleSubmit = async () => {
     if (!groupId || !parsedAmount || !description.trim() || selectedCount === 0) return;
 
+    const totalAmountInBaseCurrency = convertToBase(parsedAmount);
+    const equalShareInBaseCurrency = selectedCount > 0 ? totalAmountInBaseCurrency / selectedCount : 0;
+
     const splits = selectedMembers.map(userId => ({
       user_id: userId,
       amount: isCustomSplit 
-        ? parseFloat(customAmounts[userId] || '0') 
-        : equalShare,
+        ? convertToBase(parseFloat(customAmounts[userId] || '0'))
+        : equalShareInBaseCurrency,
     }));
 
     await addExpense.mutateAsync({
       group_id: groupId,
-      amount: parsedAmount,
+      amount: totalAmountInBaseCurrency,
       description: description.trim(),
       category,
       expense_date: format(date, 'yyyy-MM-dd'),
@@ -99,7 +104,7 @@ export default function AddGroupExpense() {
         <div className="space-y-2">
           <Label htmlFor="amount">Amount</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">{symbol}</span>
             <Input
               id="amount"
               type="number"
@@ -213,7 +218,7 @@ export default function AddGroupExpense() {
                     {isSelected && (
                       isCustomSplit ? (
                         <div className="relative w-24">
-                          <IndianRupee className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-medium">{symbol}</span>
                           <Input
                             type="number"
                             inputMode="decimal"
@@ -224,10 +229,7 @@ export default function AddGroupExpense() {
                           />
                         </div>
                       ) : (
-                        <span className="text-sm text-muted-foreground flex items-center">
-                          <IndianRupee className="h-3 w-3" />
-                          {equalShare.toFixed(2)}
-                        </span>
+                        <span className="text-sm text-muted-foreground">{formatLocalCurrency(equalShare, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       )
                     )}
                   </div>
@@ -243,7 +245,7 @@ export default function AddGroupExpense() {
             )}>
               {Math.abs(customTotal - parsedAmount) < 0.01 
                 ? '✓ Amounts match total'
-                : `₹${(parsedAmount - customTotal).toFixed(2)} remaining`
+                : `${formatLocalCurrency(parsedAmount - customTotal, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} remaining`
               }
             </p>
           )}

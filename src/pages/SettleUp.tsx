@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, IndianRupee, Check } from 'lucide-react';
+import { ArrowLeft, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useGroupMembers, useRecordSettlement, useSettlements } from '@/hooks/useGroups';
 import { useAuth } from '@/hooks/useAuth';
+import { useCurrency } from '@/hooks/useCurrency';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -17,6 +18,7 @@ export default function SettleUp() {
   const { id: groupId } = useParams();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const { symbol, formatCurrency, formatLocalCurrency, convertFromBase, convertToBase } = useCurrency();
   
   const { data: members = [] } = useGroupMembers(groupId);
   const { data: settlements = [] } = useSettlements(groupId);
@@ -31,19 +33,28 @@ export default function SettleUp() {
 
   useEffect(() => {
     if (preselectedTo) setSelectedMember(preselectedTo);
-    if (preselectedAmount) setAmount(preselectedAmount);
-  }, [preselectedTo, preselectedAmount]);
+    if (preselectedAmount) {
+      const parsedBaseAmount = parseFloat(preselectedAmount);
+      if (!isNaN(parsedBaseAmount) && parsedBaseAmount > 0) {
+        const localAmount = Math.round(convertFromBase(parsedBaseAmount) * 100) / 100;
+        setAmount(localAmount.toString());
+      }
+    }
+  }, [preselectedTo, preselectedAmount, convertFromBase]);
 
   const otherMembers = members.filter(m => m.user_id !== user?.id);
   const selectedMemberData = members.find(m => m.user_id === selectedMember);
 
   const handleSubmit = async () => {
-    if (!groupId || !selectedMember || !parseFloat(amount)) return;
+    const parsedAmount = parseFloat(amount);
+    if (!groupId || !selectedMember || !parsedAmount) return;
+
+    const amountInBaseCurrency = convertToBase(parsedAmount);
 
     await recordSettlement.mutateAsync({
       group_id: groupId,
       paid_to: selectedMember,
-      amount: parseFloat(amount),
+      amount: amountInBaseCurrency,
       note: note.trim() || undefined,
     });
 
@@ -98,7 +109,7 @@ export default function SettleUp() {
         <div className="space-y-2">
           <Label htmlFor="amount">Amount</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">{symbol}</span>
             <Input
               id="amount"
               type="number"
@@ -130,10 +141,7 @@ export default function SettleUp() {
           <Card className="bg-green-500/10 border-green-500/30">
             <CardContent className="p-4 text-center">
               <p className="text-sm text-muted-foreground">You are recording a payment of</p>
-              <p className="text-2xl font-bold flex items-center justify-center text-green-600 my-2">
-                <IndianRupee className="h-6 w-6" />
-                {parseFloat(amount).toLocaleString('en-IN')}
-              </p>
+              <p className="text-2xl font-bold text-green-600 my-2">{formatLocalCurrency(parseFloat(amount), { maximumFractionDigits: 2 })}</p>
               <p className="text-sm text-muted-foreground">
                 to {selectedMemberData?.nickname || selectedMemberData?.profile?.display_name || 'Unknown'}
               </p>
@@ -172,10 +180,7 @@ export default function SettleUp() {
                           {format(new Date(settlement.settled_at), 'MMM d, yyyy')}
                         </p>
                       </div>
-                      <span className="font-semibold flex items-center text-green-600">
-                        <IndianRupee className="h-4 w-4" />
-                        {settlement.amount.toLocaleString('en-IN')}
-                      </span>
+                      <span className="font-semibold text-green-600">{formatCurrency(settlement.amount, { maximumFractionDigits: 0 })}</span>
                     </div>
                   </CardContent>
                 </Card>

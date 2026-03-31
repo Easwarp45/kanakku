@@ -172,6 +172,9 @@ export default function Profile() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    This converts all amounts across the app using the latest exchange rate (base currency: INR).
+                  </p>
                 </div>
 
                 <Separator />

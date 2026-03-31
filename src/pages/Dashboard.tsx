@@ -5,10 +5,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRecentExpenses, useTodayTotal, useMonthlyTotal } from '@/hooks/useExpenses';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useSmartInsights } from '@/hooks/useSmartInsights';
+import { useCurrency } from '@/hooks/useCurrency';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import BottomNav from '@/components/layout/BottomNav';
-import { LogOut, Plus, Users, TrendingUp, IndianRupee, Smartphone, Target, Bell } from 'lucide-react';
+import { LogOut, Plus, Users, TrendingUp, Smartphone, Target, Bell } from 'lucide-react';
 import { InsightsWidget } from '@/components/insights';
 import { useNotifications } from '@/hooks/useNotifications';
 import { CATEGORY_CONFIG } from '@/types/expense';
@@ -19,6 +20,7 @@ import { cn } from '@/lib/utils';
 export default function Dashboard() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { symbol, formatCurrency } = useCurrency();
 
   const { data: recentExpenses = [], isLoading: loadingRecent } = useRecentExpenses(5);
   const { data: todayTotal = 0 } = useTodayTotal();
@@ -43,7 +45,7 @@ export default function Dashboard() {
         <div className="flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <span className="text-sm font-bold">₹</span>
+              <span className="text-sm font-bold">{symbol}</span>
             </div>
             <span className="font-semibold">Kanakku</span>
           </div>
@@ -77,10 +79,7 @@ export default function Dashboard() {
           <CardContent className="flex items-center justify-between p-4">
             <div>
               <p className="text-sm opacity-90">Today's spending</p>
-              <div className="flex items-center text-3xl font-bold">
-                <IndianRupee className="h-7 w-7" />
-                {todayTotal.toLocaleString('en-IN')}
-              </div>
+              <div className="text-3xl font-bold">{formatCurrency(todayTotal, { maximumFractionDigits: 0 })}</div>
             </div>
             <Button
               size="lg"
@@ -101,10 +100,7 @@ export default function Dashboard() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Total Expenses</span>
-              <span className="text-xl font-semibold flex items-center">
-                <IndianRupee className="h-5 w-5" />
-                {monthlyTotal.toLocaleString('en-IN')}
-              </span>
+              <span className="text-xl font-semibold">{formatCurrency(monthlyTotal, { maximumFractionDigits: 0 })}</span>
             </div>
             <div className="h-2 rounded-full bg-muted">
               <div className="h-2 w-1/3 rounded-full bg-primary" />
@@ -218,10 +214,7 @@ export default function Dashboard() {
                           {format(new Date(expense.expense_date), 'MMM d')}
                         </p>
                       </div>
-                      <span className="font-semibold flex items-center">
-                        <IndianRupee className="h-4 w-4" />
-                        {expense.amount.toLocaleString('en-IN')}
-                      </span>
+                            <span className="font-semibold">{formatCurrency(expense.amount, { maximumFractionDigits: 0 })}</span>
                     </div>
                   );
                 })}

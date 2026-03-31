@@ -10,11 +10,14 @@ import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import BottomNav from '@/components/layout/BottomNav';
 import { useBudgetsWithSpent, useCreateBudget, useUpdateBudget, useDeleteBudget, BudgetWithSpent } from '@/hooks/useBudgets';
+import { useCurrency } from '@/hooks/useCurrency';
 import { CATEGORY_CONFIG, ExpenseCategory } from '@/types/expense';
 import { getCategoryIcon } from '@/lib/category-icons';
 
 export default function Budget() {
   const navigate = useNavigate();
+  const { symbol, formatCurrency, convertFromBase, convertToBase } = useCurrency();
+  const formatBudgetAmount = (amount: number) => formatCurrency(amount, { maximumFractionDigits: 0 });
   const { data: budgets, isLoading } = useBudgetsWithSpent();
   const createBudget = useCreateBudget();
   const updateBudget = useUpdateBudget();
@@ -26,12 +29,9 @@ export default function Budget() {
   const [editingBudget, setEditingBudget] = useState<BudgetWithSpent | null>(null);
   const [editAmount, setEditAmount] = useState('');
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount);
+  const toEditableAmount = (amountInBase: number) => {
+    const converted = convertFromBase(amountInBase);
+    return (Math.round(converted * 100) / 100).toString();
   };
 
   const availableCategories = Object.keys(CATEGORY_CONFIG).filter(
@@ -40,10 +40,14 @@ export default function Budget() {
 
   const handleCreateBudget = async () => {
     if (!selectedCategory || !budgetAmount) return;
+
+    const parsedAmount = parseFloat(budgetAmount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) return;
+    const amountInBaseCurrency = convertToBase(parsedAmount);
     
     await createBudget.mutateAsync({
       category: selectedCategory,
-      amount: parseFloat(budgetAmount),
+      amount: amountInBaseCurrency,
     });
 
     setIsDialogOpen(false);
@@ -53,10 +57,14 @@ export default function Budget() {
 
   const handleUpdateBudget = async (id: string) => {
     if (!editAmount) return;
+
+    const parsedAmount = parseFloat(editAmount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) return;
+    const amountInBaseCurrency = convertToBase(parsedAmount);
     
     await updateBudget.mutateAsync({
       id,
-      amount: parseFloat(editAmount),
+      amount: amountInBaseCurrency,
     });
 
     setEditingBudget(null);
@@ -122,7 +130,7 @@ export default function Budget() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Monthly Budget Amount (₹)</Label>
+                  <Label>Monthly Budget Amount ({symbol})</Label>
                   <Input
                     type="number"
                     placeholder="Enter amount"
@@ -158,12 +166,12 @@ export default function Budget() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Total Budget</p>
-                    <p className="text-2xl font-bold text-foreground">{formatCurrency(totalBudget)}</p>
+                    <p className="text-2xl font-bold text-foreground">{formatBudgetAmount(totalBudget)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Spent</p>
                     <p className={`text-2xl font-bold ${totalSpent > totalBudget ? 'text-destructive' : 'text-foreground'}`}>
-                      {formatCurrency(totalSpent)}
+                      {formatBudgetAmount(totalSpent)}
                     </p>
                   </div>
                 </div>
@@ -226,7 +234,7 @@ export default function Budget() {
                               {budget.isOverBudget && (
                                 <div className="flex items-center gap-1 text-destructive text-xs">
                                   <AlertTriangle className="h-3 w-3" />
-                                  Over budget by {formatCurrency(Math.abs(budget.remaining))}
+                                  Over budget by {formatBudgetAmount(Math.abs(budget.remaining))}
                                 </div>
                               )}
                               {budget.isNearLimit && !budget.isOverBudget && (
@@ -275,7 +283,7 @@ export default function Budget() {
                                   className="h-8 w-8"
                                   onClick={() => {
                                     setEditingBudget(budget);
-                                    setEditAmount(budget.amount.toString());
+                                    setEditAmount(toEditableAmount(budget.amount));
                                   }}
                                 >
                                   <Edit2 className="h-4 w-4" />
@@ -295,7 +303,7 @@ export default function Budget() {
 
                         {isEditing ? (
                           <div className="mb-3">
-                            <Label className="text-xs">Budget Amount (₹)</Label>
+                            <Label className="text-xs">Budget Amount ({symbol})</Label>
                             <Input
                               type="number"
                               value={editAmount}
@@ -306,10 +314,10 @@ export default function Budget() {
                         ) : (
                           <div className="flex justify-between text-sm mb-2">
                             <span className="text-muted-foreground">
-                              {formatCurrency(budget.spent)} spent
+                              {formatBudgetAmount(budget.spent)} spent
                             </span>
                             <span className="text-foreground font-medium">
-                              {formatCurrency(budget.amount)} budget
+                              {formatBudgetAmount(budget.amount)} budget
                             </span>
                           </div>
                         )}
@@ -337,7 +345,7 @@ export default function Budget() {
                                 {budget.percentage.toFixed(0)}% used
                               </span>
                               <span className={budget.remaining >= 0 ? 'text-secondary' : 'text-destructive'}>
-                                {budget.remaining >= 0 ? `${formatCurrency(budget.remaining)} left` : 'Over budget'}
+                                {budget.remaining >= 0 ? `${formatBudgetAmount(budget.remaining)} left` : 'Over budget'}
                               </span>
                             </div>
                           </>

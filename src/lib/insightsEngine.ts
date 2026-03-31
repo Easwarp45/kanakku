@@ -1,6 +1,7 @@
 import { parseISO, isWeekend, eachDayOfInterval, startOfMonth, endOfMonth } from 'date-fns';
 import type { ExpenseCategory } from '@/types/expense';
 import type { Insight, InsightsAnalytics, InsightGenerationInput } from '@/types/insights';
+import { formatMoney, type SupportedCurrency } from '@/lib/currency';
 
 /**
  * Calculate comprehensive analytics from expenses
@@ -96,9 +97,9 @@ function getWeekendInsight(weekend: number, weekday: number): string {
 /**
  * Helper: Get spending forecast
  */
-function getForecastInsight(dailyAvg: number): string {
+function getForecastInsight(dailyAvg: number, currency: SupportedCurrency): string {
   const forecast = dailyAvg * 30;
-  return `At this rate, you'll spend ₹${forecast.toLocaleString('en-IN')} this month`;
+  return `At this rate, you'll spend ${formatMoney(forecast, currency, { maximumFractionDigits: 0 })} this month`;
 }
 
 /**
@@ -125,8 +126,8 @@ function getPositiveInsight(usage: number): string {
 /**
  * Helper: Get savings opportunity message
  */
-function getSavingsSuggestion(category: string, amount: number): string {
-  return `Reducing ${category} by 15% could save you ₹${Math.round(amount * 0.15).toLocaleString('en-IN')} this month`;
+function getSavingsSuggestion(category: string, amount: number, currency: SupportedCurrency): string {
+  return `Reducing ${category} by 15% could save you ${formatMoney(Math.round(amount * 0.15), currency, { maximumFractionDigits: 0 })} this month`;
 }
 
 /**
@@ -152,7 +153,8 @@ function getCategoryEmoji(category: ExpenseCategory): string {
  */
 export function generateInsights(
   analytics: InsightsAnalytics,
-  input: InsightGenerationInput
+  input: InsightGenerationInput,
+  currency: SupportedCurrency = 'INR'
 ): Insight[] {
   const insights: Insight[] = [];
   const now = Date.now();
@@ -165,7 +167,7 @@ export function generateInsights(
       type: 'warning',
       priority: 'high',
       title: 'Budget Exceeded',
-      message: `You've exceeded your budget by ₹${overspendAmount.toLocaleString('en-IN')}`,
+      message: `You've exceeded your budget by ${formatMoney(overspendAmount, currency, { maximumFractionDigits: 0 })}`,
       icon: '⚠️',
       actionable: true,
       timestamp: now,
@@ -180,7 +182,7 @@ export function generateInsights(
       type: 'warning',
       priority: 'medium',
       title: 'Nearing Budget Limit',
-      message: `You've used ${analytics.budgetStatus.toFixed(0)}% of your budget. Only ₹${remaining.toLocaleString('en-IN')} remaining`,
+      message: `You've used ${analytics.budgetStatus.toFixed(0)}% of your budget. Only ${formatMoney(remaining, currency, { maximumFractionDigits: 0 })} remaining`,
       icon: '📈',
       actionable: true,
       timestamp: now,
@@ -196,7 +198,7 @@ export function generateInsights(
       type: 'warning',
       priority: 'medium',
       title: `High ${category} Spending`,
-      message: `${category} spending is at ₹${amount.toLocaleString('en-IN')}, approaching or exceeding budget`,
+      message: `${category} spending is at ${formatMoney(amount, currency, { maximumFractionDigits: 0 })}, approaching or exceeding budget`,
       icon: getCategoryEmoji(category),
       actionable: true,
       relatedCategory: category,
@@ -211,7 +213,7 @@ export function generateInsights(
       type: 'insight',
       priority: 'low',
       title: `Your Top Spending Category`,
-      message: `${analytics.topCategory} is your highest spending category at ₹${analytics.topCategoryAmount.toLocaleString('en-IN')}`,
+      message: `${analytics.topCategory} is your highest spending category at ${formatMoney(analytics.topCategoryAmount, currency, { maximumFractionDigits: 0 })}`,
       icon: getCategoryEmoji(analytics.topCategory),
       actionable: false,
       relatedCategory: analytics.topCategory,
@@ -239,7 +241,7 @@ export function generateInsights(
     type: 'insight',
     priority: 'medium',
     title: 'Monthly Forecast',
-    message: getForecastInsight(analytics.dailyAverage),
+    message: getForecastInsight(analytics.dailyAverage, currency),
     icon: '📊',
     actionable: false,
     timestamp: now,
@@ -283,7 +285,7 @@ export function generateInsights(
       type: 'suggestion',
       priority: 'medium',
       title: 'Reduce Spending on ' + analytics.topCategory,
-      message: getSavingsSuggestion(analytics.topCategory, analytics.topCategoryAmount),
+      message: getSavingsSuggestion(analytics.topCategory, analytics.topCategoryAmount, currency),
       icon: '💡',
       actionable: true,
       relatedCategory: analytics.topCategory,

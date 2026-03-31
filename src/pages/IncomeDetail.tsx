@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, Calendar, IndianRupee, Pencil, Trash2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Calendar, Pencil, Trash2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,10 +23,12 @@ import {
 import { useIncomeRecord, useUpdateIncome, useDeleteIncome } from '@/hooks/useIncome';
 import { INCOME_SOURCE_CONFIG, type IncomeSource } from '@/types/income';
 import { cn } from '@/lib/utils';
+import { useCurrency } from '@/hooks/useCurrency';
 
 export default function IncomeDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { symbol, formatCurrency, convertFromBase, convertToBase } = useCurrency();
   const { data: income, isLoading } = useIncomeRecord(id);
   const updateIncome = useUpdateIncome();
   const deleteIncome = useDeleteIncome();
@@ -40,13 +42,15 @@ export default function IncomeDetail() {
 
   useEffect(() => {
     if (income) {
-      setAmount(income.amount.toString());
+      const displayAmount = convertFromBase(income.amount);
+      const roundedAmount = Math.round(displayAmount * 100) / 100;
+      setAmount(roundedAmount.toString());
       setSource(income.source);
       setDescription(income.description || '');
       setDate(new Date(income.income_date));
       setIsRecurring(income.is_recurring);
     }
-  }, [income]);
+  }, [income, convertFromBase]);
 
   const handleUpdate = async () => {
     if (!id) return;
@@ -54,9 +58,11 @@ export default function IncomeDetail() {
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
 
+    const amountInBaseCurrency = convertToBase(parsedAmount);
+
     await updateIncome.mutateAsync({
       id,
-      amount: parsedAmount,
+      amount: amountInBaseCurrency,
       source,
       description: description.trim() || undefined,
       income_date: format(date, 'yyyy-MM-dd'),
@@ -135,9 +141,8 @@ export default function IncomeDetail() {
         <div className="p-4 space-y-6">
           {/* Amount */}
           <div className="text-center py-6">
-            <div className="flex items-center justify-center text-4xl font-bold text-secondary">
-              <IndianRupee className="h-8 w-8" />
-              {income.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            <div className="text-4xl font-bold text-secondary">
+              {formatCurrency(income.amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <p className="text-muted-foreground mt-2">
               {format(new Date(income.income_date), 'EEEE, MMMM d, yyyy')}
@@ -193,7 +198,7 @@ export default function IncomeDetail() {
         <div className="space-y-2">
           <Label htmlFor="amount">Amount</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">{symbol}</span>
             <Input
               id="amount"
               type="number"

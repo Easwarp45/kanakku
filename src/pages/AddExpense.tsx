@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, Calendar, IndianRupee } from 'lucide-react';
+import { ArrowLeft, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,11 +16,13 @@ import { getCategoryIcon } from '@/lib/category-icons';
 import { cn } from '@/lib/utils';
 import { uploadReceipt } from '@/lib/receiptStorage';
 import { toast } from 'sonner';
+import { useCurrency } from '@/hooks/useCurrency';
 
 export default function AddExpense() {
   const navigate = useNavigate();
   const createExpense = useCreateExpense();
   const { user } = useAuth();
+  const { symbol, convertToBase } = useCurrency();
 
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<ExpenseCategory>('food');
@@ -66,6 +68,8 @@ export default function AddExpense() {
       return;
     }
 
+    const amountInBaseCurrency = convertToBase(parsedAmount);
+
     if (receiptFile && !navigator.onLine) {
       toast.error('Receipt upload requires an internet connection.');
       return;
@@ -91,7 +95,7 @@ export default function AddExpense() {
     }
 
     await createExpense.mutateAsync({
-      amount: parsedAmount,
+      amount: amountInBaseCurrency,
       category,
       description: description.trim() || undefined,
       payment_method: paymentMethod,
@@ -119,7 +123,7 @@ export default function AddExpense() {
         <div className="space-y-2">
           <Label htmlFor="amount">Amount</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">{symbol}</span>
             <Input
               id="amount"
               type="number"

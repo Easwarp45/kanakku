@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, Calendar, IndianRupee, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, Calendar, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,10 +16,12 @@ import { CATEGORY_CONFIG, PAYMENT_METHOD_CONFIG, type ExpenseCategory, type Paym
 import { cn } from '@/lib/utils';
 import { uploadReceipt } from '@/lib/receiptStorage';
 import { toast } from 'sonner';
+import { useCurrency } from '@/hooks/useCurrency';
 
 export default function ExpenseDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { symbol, formatCurrency, convertFromBase, convertToBase } = useCurrency();
   const { data: expense, isLoading } = useExpense(id);
   const updateExpense = useUpdateExpense();
   const deleteExpense = useDeleteExpense();
@@ -37,7 +39,9 @@ export default function ExpenseDetail() {
 
   useEffect(() => {
     if (expense) {
-      setAmount(expense.amount.toString());
+      const displayAmount = convertFromBase(expense.amount);
+      const roundedAmount = Math.round(displayAmount * 100) / 100;
+      setAmount(roundedAmount.toString());
       setCategory(expense.category);
       setDescription(expense.description || '');
       setPaymentMethod(expense.payment_method);
@@ -45,7 +49,7 @@ export default function ExpenseDetail() {
       setReceiptFile(null);
       setRemoveReceipt(false);
     }
-  }, [expense]);
+  }, [expense, convertFromBase]);
 
   useEffect(() => {
     if (!receiptFile) {
@@ -82,6 +86,8 @@ export default function ExpenseDetail() {
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
 
+    const amountInBaseCurrency = convertToBase(parsedAmount);
+
     if (receiptFile && !navigator.onLine) {
       toast.error('Receipt upload requires an internet connection.');
       return;
@@ -106,7 +112,7 @@ export default function ExpenseDetail() {
 
     await updateExpense.mutateAsync({
       id,
-      amount: parsedAmount,
+      amount: amountInBaseCurrency,
       category,
       description: description.trim() || undefined,
       payment_method: paymentMethod,
@@ -187,10 +193,7 @@ export default function ExpenseDetail() {
         <div className="p-4 space-y-6">
           {/* Amount */}
           <div className="text-center py-6">
-            <div className="flex items-center justify-center text-4xl font-bold">
-              <IndianRupee className="h-8 w-8" />
-              {expense.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-            </div>
+            <div className="text-4xl font-bold">{formatCurrency(expense.amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             <p className="text-muted-foreground mt-2">{format(new Date(expense.expense_date), 'EEEE, MMMM d, yyyy')}</p>
           </div>
 
@@ -273,7 +276,7 @@ export default function ExpenseDetail() {
         <div className="space-y-2">
           <Label htmlFor="amount">Amount</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">{symbol}</span>
             <Input
               id="amount"
               type="number"

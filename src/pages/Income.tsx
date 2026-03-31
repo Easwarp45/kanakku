@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
-import { ArrowLeft, Plus, Trash2, IndianRupee, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,9 +15,11 @@ import { SkeletonListLoader } from '@/components/ui/skeleton-loader';
 import { PageTransition } from '@/lib/animations';
 import { cn } from '@/lib/utils';
 import BottomNav from '@/components/layout/BottomNav';
+import { useCurrency } from '@/hooks/useCurrency';
 
 export default function Income() {
   const navigate = useNavigate();
+  const { symbol, formatCurrency } = useCurrency();
   const [sourceFilter, setSourceFilter] = useState<IncomeSource | 'all'>('all');
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -94,10 +96,7 @@ export default function Income() {
       <div className="p-4 border-b bg-secondary/5">
         <div className="flex justify-between items-center">
           <span className="text-sm text-muted-foreground">Total this month</span>
-          <div className="flex items-center text-xl font-bold text-secondary">
-            <IndianRupee className="h-5 w-5" />
-            {totalIncome.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-          </div>
+          <div className="text-xl font-bold text-secondary">{formatCurrency(totalIncome, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
         </div>
       </div>
 
@@ -111,7 +110,7 @@ export default function Income() {
           <Card className="m-4">
             <CardContent className="flex flex-col items-center justify-center py-12 text-center">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                <IndianRupee className="h-6 w-6 text-muted-foreground" />
+                  <span className="text-lg font-semibold text-muted-foreground">{symbol}</span>
               </div>
               <p className="text-muted-foreground">No income recorded this month</p>
               <p className="text-sm text-muted-foreground mb-4">Add your income to track savings</p>
@@ -146,10 +145,7 @@ export default function Income() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold flex items-center text-secondary">
-                    <IndianRupee className="h-4 w-4" />
-                    {item.amount.toLocaleString('en-IN')}
-                  </span>
+                  <span className="font-semibold text-secondary">{formatCurrency(item.amount, { maximumFractionDigits: 0 })}</span>
                   <Button
                     variant="ghost"
                     size="icon"
