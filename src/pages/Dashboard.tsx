@@ -134,7 +134,7 @@ export default function Dashboard() {
             className="flex h-auto flex-col gap-2 py-4"
             onClick={() => navigate('/upi')}
           >
-            <Smartphone className="h-5 w-5 text-green-600" />
+            <Smartphone className="h-5 w-5 text-primary" />
             <span className="text-xs">UPI</span>
           </Button>
           <Button
@@ -142,7 +142,7 @@ export default function Dashboard() {
             className="flex h-auto flex-col gap-2 py-4"
             onClick={() => navigate('/groups')}
           >
-            <Users className="h-5 w-5 text-secondary-foreground" />
+            <Users className="h-5 w-5 text-primary" />
             <span className="text-xs">Split</span>
           </Button>
           <Button
@@ -150,7 +150,7 @@ export default function Dashboard() {
             className="flex h-auto flex-col gap-2 py-4"
             onClick={() => navigate('/budget')}
           >
-            <Target className="h-5 w-5 text-accent" />
+            <Target className="h-5 w-5 text-primary" />
             <span className="text-xs">Budget</span>
           </Button>
           <Button

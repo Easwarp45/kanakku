@@ -102,15 +102,14 @@ export function useMemberRemovalListener(
 ) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const hasSubscribed = useRef(false);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
-    if (!groupId || !user || hasSubscribed.current) return;
+    if (!groupId || !user) return;
 
     console.log(`🔌 Setting up member removal listener for group ${groupId}`);
-    hasSubscribed.current = true;
 
-    const channel = supabase.channel(`removal-notifications-${groupId}-${user.id}`)
+    const ch = supabase.channel(`removal-notifications-${groupId}-${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -137,13 +136,18 @@ export function useMemberRemovalListener(
             onRemoved();
           }
         }
-      )
-      .subscribe();
+      );
+
+    // Store the channel before calling subscribe so cleanup can reference it correctly
+    channelRef.current = ch;
+    ch.subscribe();
 
     return () => {
       console.log(`🔌 Cleaning up member removal listener for group ${groupId}`);
-      hasSubscribed.current = false;
-      supabase.removeChannel(channel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [groupId, user, queryClient, onRemoved]);
 }
@@ -195,6 +199,7 @@ export function useCheckMyMembership(groupId: string | undefined) {
       return data as boolean;
     },
     enabled: !!groupId && !!user,
+    initialData: !groupId ? true : undefined, // default to true when no groupId (disabled)
     staleTime: 1000 * 60 * 5, // 5 minutes - only used for initial check, not polling
     refetchInterval: false,   // NO POLLING - real-time handles it
   });

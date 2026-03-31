@@ -129,9 +129,9 @@ export default function Expenses() {
         <div className="flex flex-wrap gap-2">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="flex-1 justify-start text-left font-normal">
-                <Calendar className="mr-2 h-4 w-4" />
-                {dateRangeLabel}
+              <Button variant="outline" className="flex-1 justify-start text-left font-normal min-w-0">
+                <Calendar className="mr-2 h-4 w-4 shrink-0" />
+                <span className="truncate">{dateRangeLabel}</span>
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">

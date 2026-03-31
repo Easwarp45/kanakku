@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { 
@@ -70,12 +70,22 @@ export default function GroupDetail() {
   const removeGroupMember = useRemoveGroupMember();
   const sendGroupChat = useSendGroupChat();
 
+  // useRef for the removal guard so concurrent effects don't create stale closures
+  // that read an outdated `removed` value and fire duplicate toasts/navigations.
+  const removedRef = useRef(false);
+  const [removed, setRemoved] = useState(false);
+
+  const [copied, setCopied] = useState(false);
+  const [chatMessage, setChatMessage] = useState('');
+  const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
+
   // WebSocket-based real-time member removal detection
   // When removed, the DB trigger creates a notification that we receive instantly
   const handleRemoval = () => {
-    if (!removed) {
-      console.log('🚫 Real-time removal notification received');
+    if (!removedRef.current) {
+      removedRef.current = true;
       setRemoved(true);
+      console.log('🚫 Real-time removal notification received');
       toast.error('You were removed from this group');
       setTimeout(() => navigate('/groups'), 2000);
     }
@@ -86,30 +96,26 @@ export default function GroupDetail() {
   // Check membership on mount (fallback/initial check, not polling)
   const { data: isMember } = useCheckMyMembership(id);
 
-  const [copied, setCopied] = useState(false);
-  const [chatMessage, setChatMessage] = useState('');
-  const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
-  const [removed, setRemoved] = useState(false);
-
   const isAdmin = group && user && group.created_by === user.id;
 
   // Initial membership check (fires once on mount)
   // If isMember is false from the start, user shouldn't be here
   useEffect(() => {
-    if (isMember === false && !removed) {
-      console.log('🚫 Initial membership check failed - user not a member');
+    if (isMember === false && !removedRef.current) {
+      removedRef.current = true;
       setRemoved(true);
+      console.log('🚫 Initial membership check failed - user not a member');
       toast.error('You are not a member of this group');
       setTimeout(() => navigate('/groups'), 2000);
     }
-  }, [isMember, removed, navigate]);
+  }, [isMember, navigate]);
 
   // SECONDARY kick detection: fires when the members list changes
   // (e.g. real-time event does fire, or members refetch catches the removal).
   // Runs even when members is empty — after the cache is cleared on removal,
   // the array becomes [] before the route changes, so we must not skip the check.
   useEffect(() => {
-    if (!loadingMembers && user && !removed) {
+    if (!loadingMembers && user && !removedRef.current) {
       const isCurrentUserMember = members.some(m => m.user_id === user.id);
 
       // Only redirect if loading finished AND we have some evidence the list was fetched
@@ -118,8 +124,9 @@ export default function GroupDetail() {
         // Extra guard: if no members at all AND group is still loading, skip
         if (members.length === 0 && loadingGroup) return;
 
-        console.log('User is not a member of this group - removing access');
+        removedRef.current = true;
         setRemoved(true);
+        console.log('User is not a member of this group - removing access');
         toast.error('You were removed from this group');
 
         setTimeout(() => {
@@ -127,7 +134,7 @@ export default function GroupDetail() {
         }, 2000);
       }
     }
-  }, [members, user, loadingMembers, loadingGroup, navigate, removed]);
+  }, [members, user, loadingMembers, loadingGroup, navigate]);
 
   const copyInviteCode = () => {
     if (group?.invite_code) {
@@ -305,21 +312,21 @@ export default function GroupDetail() {
       {/* Tabs */}
       <Tabs defaultValue="expenses" className="mt-4">
         <TabsList className="grid w-full grid-cols-4 mx-4" style={{ width: 'calc(100% - 2rem)' }}>
-          <TabsTrigger value="expenses" className="gap-1 text-xs sm:text-sm">
-            <Receipt className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Expenses</span>
+          <TabsTrigger value="expenses" className="gap-1 text-xs">
+            <Receipt className="h-3.5 w-3.5 shrink-0" />
+            <span>Expenses</span>
           </TabsTrigger>
-          <TabsTrigger value="balances" className="gap-1 text-xs sm:text-sm">
-            <ArrowRightLeft className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Balances</span>
+          <TabsTrigger value="balances" className="gap-1 text-xs">
+            <ArrowRightLeft className="h-3.5 w-3.5 shrink-0" />
+            <span>Balances</span>
           </TabsTrigger>
-          <TabsTrigger value="members" className="gap-1 text-xs sm:text-sm">
-            <Users className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Members</span>
+          <TabsTrigger value="members" className="gap-1 text-xs">
+            <Users className="h-3.5 w-3.5 shrink-0" />
+            <span>Members</span>
           </TabsTrigger>
-          <TabsTrigger value="chat" className="gap-1 text-xs sm:text-sm font-semibold" title="Group Chat">
-            <MessageSquare className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Chat</span>
+          <TabsTrigger value="chat" className="gap-1 text-xs font-semibold" title="Group Chat">
+            <MessageSquare className="h-3.5 w-3.5 shrink-0" />
+            <span>Chat</span>
           </TabsTrigger>
         </TabsList>
 
@@ -477,14 +484,21 @@ export default function GroupDetail() {
                     )}
                   </div>
                 </div>
-                <span className={cn(
-                  'font-semibold flex items-center text-sm',
-                  balance.balance >= 0 ? 'text-green-600' : 'text-red-600'
-                )}>
-                  {balance.balance >= 0 ? '+' : '-'}
-                  <IndianRupee className="h-3.5 w-3.5" />
-                  {Math.abs(balance.balance).toLocaleString('en-IN')}
-                </span>
+                <div className="text-right">
+                  <p className={cn(
+                    'text-[10px] font-medium',
+                    balance.balance >= 0 ? 'text-green-700' : 'text-red-700'
+                  )}>
+                    {balance.balance >= 0 ? 'Gets back' : 'Owes'}
+                  </p>
+                  <span className={cn(
+                    'font-semibold flex items-center text-sm',
+                    balance.balance >= 0 ? 'text-green-600' : 'text-red-600'
+                  )}>
+                    <IndianRupee className="h-3.5 w-3.5" />
+                    {Math.abs(balance.balance).toLocaleString('en-IN')}
+                  </span>
+                </div>
               </CardContent>
             </Card>
           ))}

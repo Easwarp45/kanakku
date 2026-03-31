@@ -132,7 +132,7 @@ export default function Signup() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-muted/50 rounded-r-md"
                       onClick={() => setShowPassword(!showPassword)}
                     >
                       {showPassword ? (
@@ -166,7 +166,7 @@ export default function Signup() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-muted/50 rounded-r-md"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     >
                       {showConfirmPassword ? (
