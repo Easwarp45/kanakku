@@ -1,35 +1,52 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Receipt, Users, BarChart3, User, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
 
 const navItems = [
-  { to: '/dashboard', icon: Home, label: 'Home' },
-  { to: '/expenses', icon: Receipt, label: 'Expenses' },
-  { to: '/income', icon: Wallet, label: 'Income' },
-  { to: '/groups', icon: Users, label: 'Groups' },
-  { to: '/analytics', icon: BarChart3, label: 'Analytics' },
-  { to: '/profile', icon: User, label: 'Profile' },
+  { to: '/dashboard', icon: Home,     label: 'Home'     },
+  { to: '/expenses',  icon: Receipt,  label: 'Expenses' },
+  { to: '/income',    icon: Wallet,   label: 'Income'   },
+  { to: '/groups',    icon: Users,    label: 'Groups'   },
+  { to: '/analytics', icon: BarChart3,label: 'Stats'    },
+  { to: '/profile',   icon: User,     label: 'Me'       },
 ];
 
 export default function BottomNav() {
   const location = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t safe-area-pb">
-      <div className="flex items-center justify-around h-16">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pb-4 safe-bottom px-4">
+      <div className="nav-pill flex items-center gap-1 px-3 py-2 w-full max-w-sm">
         {navItems.map(({ to, icon: Icon, label }) => {
           const isActive = location.pathname === to || location.pathname.startsWith(to + '/');
           return (
             <NavLink
               key={to}
               to={to}
-              className={cn(
-                'flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors',
-                isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-              )}
+              className="relative flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-full transition-colors"
             >
-              <Icon className={cn('h-5 w-5', isActive && 'stroke-[2.5]')} />
-              <span className="text-xs">{label}</span>
+              {isActive && (
+                <motion.div
+                  layoutId="nav-active"
+                  className="absolute inset-0 rounded-full bg-primary/20 border border-primary/30"
+                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                />
+              )}
+              <Icon
+                className={cn(
+                  'relative h-5 w-5 transition-colors',
+                  isActive ? 'text-primary stroke-[2.5]' : 'text-muted-foreground'
+                )}
+              />
+              <span
+                className={cn(
+                  'relative text-[9px] font-medium transition-colors',
+                  isActive ? 'text-primary' : 'text-muted-foreground'
+                )}
+              >
+                {label}
+              </span>
             </NavLink>
           );
         })}

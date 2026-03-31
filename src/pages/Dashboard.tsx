@@ -5,29 +5,35 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRecentExpenses, useTodayTotal, useMonthlyTotal } from '@/hooks/useExpenses';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useSmartInsights } from '@/hooks/useSmartInsights';
-import { useCurrency } from '@/hooks/useCurrency';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import BottomNav from '@/components/layout/BottomNav';
-import { LogOut, Plus, Users, TrendingUp, Smartphone, Target, Bell } from 'lucide-react';
+import {
+  LogOut, Plus, Users, TrendingUp, IndianRupee,
+  Smartphone, Target, Bell, Zap, ArrowUpRight
+} from 'lucide-react';
 import { InsightsWidget } from '@/components/insights';
 import { useNotifications } from '@/hooks/useNotifications';
 import { CATEGORY_CONFIG } from '@/types/expense';
 import { getCategoryIcon } from '@/lib/category-icons';
-import { PageTransition, AnimatedCard, listContainerVariants, listItemVariants } from '@/lib/animations';
 import { cn } from '@/lib/utils';
+
+const listVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06 } },
+};
+const itemVariants = {
+  hidden: { opacity: 0, y: 14 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.4,0,0.2,1] } },
+};
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const { symbol, formatCurrency } = useCurrency();
 
   const { data: recentExpenses = [], isLoading: loadingRecent } = useRecentExpenses(5);
   const { data: todayTotal = 0 } = useTodayTotal();
   const { data: monthlyTotal = 0 } = useMonthlyTotal();
   const { insights, isLoading: insightsLoading } = useSmartInsights();
 
-  // Initialize offline sync
   useOfflineSync();
 
   const { permission, requestPermission } = useNotifications();
@@ -37,195 +43,230 @@ export default function Dashboard() {
     navigate('/login');
   };
 
+  const firstName = (user?.user_metadata?.display_name as string)?.split(' ')[0] || 'there';
+
+  const quickActions = [
+    { icon: Plus,       label: 'Add',     path: '/add-expense',  color: 'from-violet-500 to-purple-600' },
+    { icon: Smartphone, label: 'UPI',     path: '/upi',          color: 'from-cyan-500 to-sky-600' },
+    { icon: Users,      label: 'Split',   path: '/groups',       color: 'from-pink-500 to-rose-600' },
+    { icon: Target,     label: 'Budget',  path: '/budget',       color: 'from-amber-500 to-orange-600' },
+    { icon: TrendingUp, label: 'Stats',   path: '/analytics',    color: 'from-emerald-500 to-teal-600' },
+  ];
+
   return (
-    <PageTransition>
-      <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex h-14 items-center justify-between px-4">
+    <div className="min-h-screen bg-background pb-24">
+      {/* ── Header ── */}
+      <header className="sticky top-0 z-50 px-4 pt-4 pb-2">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <span className="text-sm font-bold">{symbol}</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/20 border border-primary/30">
+              <span className="text-sm font-bold text-gradient font-display">₹</span>
             </div>
-            <span className="font-semibold">Kanakku</span>
+            <span className="font-display text-base font-bold tracking-tight">Kanakku</span>
           </div>
           <div className="flex items-center gap-1">
             {permission !== 'granted' && (
-              <Button variant="ghost" size="icon" onClick={requestPermission} title="Enable notifications">
-                <Bell className="h-5 w-5" />
-              </Button>
+              <button
+                onClick={requestPermission}
+                title="Enable notifications"
+                className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/8 hover:bg-white/10 transition-colors"
+              >
+                <Bell className="h-4 w-4 text-muted-foreground" />
+              </button>
             )}
-            <Button variant="ghost" size="icon" onClick={handleSignOut}>
-              <LogOut className="h-5 w-5" />
-            </Button>
+            <button
+              onClick={handleSignOut}
+              className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/8 hover:bg-white/10 transition-colors"
+            >
+              <LogOut className="h-4 w-4 text-muted-foreground" />
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Main content */}
-      <main className="px-4 py-6">
-        {/* Welcome section */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">
-            Hello, {user?.user_metadata?.display_name || 'there'}! 👋
+      <main className="px-4 pt-2 pb-6 space-y-4">
+        {/* ── Greeting ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }}
+        >
+          <h1 className="font-display text-2xl font-bold">
+            Hey, {firstName} 👋
           </h1>
-          <p className="text-muted-foreground">
-            Track your expenses and manage your money
-          </p>
-        </div>
+          <p className="text-sm text-muted-foreground mt-0.5">Here's your money situation</p>
+        </motion.div>
 
-        {/* Quick add expense card */}
-        <Card className="mb-6 bg-primary text-primary-foreground">
-          <CardContent className="flex items-center justify-between p-4">
-            <div>
-              <p className="text-sm opacity-90">Today's spending</p>
-              <div className="text-3xl font-bold">{formatCurrency(todayTotal, { maximumFractionDigits: 0 })}</div>
+        {/* ── Bento Hero: Balance + Today ── */}
+        <motion.div
+          className="grid grid-cols-2 gap-3"
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.05 }}
+        >
+          {/* Monthly total — big hero */}
+          <div
+            className="bento-card col-span-2 cursor-pointer group"
+            onClick={() => navigate('/expenses')}
+            style={{
+              background: 'linear-gradient(135deg, rgba(168,85,247,0.18) 0%, rgba(12,200,224,0.08) 100%)',
+              borderColor: 'rgba(168,85,247,0.25)',
+            }}
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">This Month</p>
+                <div className="flex items-end gap-1 mt-2">
+                  <span className="text-xs text-primary/70 font-medium">₹</span>
+                  <span className="font-display text-4xl font-bold amount-neutral count-up">
+                    {monthlyTotal.toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">total expenses tracked</p>
+              </div>
+              <div className="h-10 w-10 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <ArrowUpRight className="h-5 w-5 text-primary" />
+              </div>
             </div>
-            <Button
-              size="lg"
-              variant="secondary"
-              className="h-12 w-12 rounded-full p-0"
-              onClick={() => navigate('/add-expense')}
-            >
-              <Plus className="h-6 w-6" />
-            </Button>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Monthly overview */}
-        <Card className="mb-6">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium">This Month</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Total Expenses</span>
-              <span className="text-xl font-semibold">{formatCurrency(monthlyTotal, { maximumFractionDigits: 0 })}</span>
-            </div>
-            <div className="h-2 rounded-full bg-muted">
-              <div className="h-2 w-1/3 rounded-full bg-primary" />
-            </div>
-            <Button 
-              variant="link" 
-              className="text-sm p-0 h-auto" 
-              onClick={() => navigate('/budget')}
-            >
-              Set a budget to track your spending →
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Quick actions */}
-        <div className="grid grid-cols-5 gap-2">
-          <Button
-            variant="outline"
-            className="flex h-auto flex-col gap-2 py-4"
+          {/* Today */}
+          <div
+            className="bento-card cursor-pointer"
             onClick={() => navigate('/add-expense')}
           >
-            <Plus className="h-5 w-5 text-primary" />
-            <span className="text-xs">Add</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="flex h-auto flex-col gap-2 py-4"
-            onClick={() => navigate('/upi')}
-          >
-            <Smartphone className="h-5 w-5 text-primary" />
-            <span className="text-xs">UPI</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="flex h-auto flex-col gap-2 py-4"
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Today</p>
+            <div className="mt-2 flex items-end gap-0.5">
+              <span className="text-[10px] text-cyan-400/70">₹</span>
+              <span className="font-display text-2xl font-bold text-cyan-400">
+                {todayTotal.toLocaleString('en-IN')}
+              </span>
+            </div>
+            <div className="mt-3 flex items-center gap-1">
+              <div className="h-5 w-5 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                <Plus className="h-3 w-3 text-cyan-400" />
+              </div>
+              <span className="text-[10px] text-muted-foreground">Add expense</span>
+            </div>
+          </div>
+
+          {/* Groups teaser */}
+          <div
+            className="bento-card cursor-pointer"
             onClick={() => navigate('/groups')}
           >
-            <Users className="h-5 w-5 text-primary" />
-            <span className="text-xs">Split</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="flex h-auto flex-col gap-2 py-4"
-            onClick={() => navigate('/budget')}
-          >
-            <Target className="h-5 w-5 text-primary" />
-            <span className="text-xs">Budget</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="flex h-auto flex-col gap-2 py-4"
-            onClick={() => navigate('/analytics')}
-          >
-            <TrendingUp className="h-5 w-5 text-primary" />
-            <span className="text-xs">Stats</span>
-          </Button>
-        </div>
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Groups</p>
+            <div className="mt-2 flex items-center gap-1.5">
+              <div className="h-7 w-7 rounded-full bg-pink-500/20 border border-pink-500/30 flex items-center justify-center">
+                <Users className="h-3.5 w-3.5 text-pink-400" />
+              </div>
+              <span className="font-display text-lg font-bold text-pink-400">Split</span>
+            </div>
+            <p className="mt-2 text-[10px] text-muted-foreground">Manage group expenses</p>
+          </div>
+        </motion.div>
 
-        {/* Smart Insights Widget */}
-        <div className="mt-6">
+        {/* ── Quick Actions ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+        >
+          <h2 className="font-display text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Quick Actions</h2>
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+            {quickActions.map((action) => (
+              <button
+                key={action.path}
+                onClick={() => navigate(action.path)}
+                className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-white/5 border border-white/8 hover:border-primary/30 hover:bg-primary/5 transition-all shrink-0 w-[72px]"
+              >
+                <div className={cn('h-9 w-9 rounded-xl bg-gradient-to-br flex items-center justify-center', action.color)}>
+                  <action.icon className="h-4 w-4 text-white" />
+                </div>
+                <span className="text-[11px] font-medium text-foreground/80">{action.label}</span>
+              </button>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* ── Smart Insights ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.15 }}
+        >
           <InsightsWidget insights={insights} limit={2} isLoading={insightsLoading} />
-        </div>
+        </motion.div>
 
-        {/* Recent transactions */}
-        <div className="mt-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Recent Transactions</h2>
+        {/* ── Recent Transactions ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-display text-base font-bold">Recent</h2>
             {recentExpenses.length > 0 && (
-              <Button variant="link" className="text-sm p-0 h-auto" onClick={() => navigate('/expenses')}>
-                View all
-              </Button>
+              <button
+                onClick={() => navigate('/expenses')}
+                className="text-xs text-primary font-medium flex items-center gap-1 hover:opacity-80 transition-opacity"
+              >
+                View all <ArrowUpRight className="h-3 w-3" />
+              </button>
             )}
           </div>
 
           {loadingRecent ? (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                Loading...
-              </CardContent>
-            </Card>
+            <div className="space-y-2">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="shimmer h-16 w-full" />
+              ))}
+            </div>
           ) : recentExpenses.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                  <Plus className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <p className="text-muted-foreground">No transactions yet</p>
-                <p className="text-sm text-muted-foreground">
-                  Add your first expense to get started
-                </p>
-              </CardContent>
-            </Card>
+            <div className="bento-card text-center py-8">
+              <div className="h-12 w-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-3">
+                <Zap className="h-6 w-6 text-primary" />
+              </div>
+              <p className="font-display font-semibold text-sm">No transactions yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Add your first expense to get started</p>
+            </div>
           ) : (
-            <Card>
-              <CardContent className="p-0 divide-y">
-                {recentExpenses.map((expense) => {
-                  const config = CATEGORY_CONFIG[expense.category];
-                  const IconComponent = getCategoryIcon(expense.category);
-                  return (
-                    <div
-                      key={expense.id}
-                      className="flex items-center gap-3 p-4 hover:bg-muted/50 cursor-pointer"
-                      onClick={() => navigate(`/expenses/${expense.id}`)}
-                    >
-                      <div className={cn('w-10 h-10 rounded-full flex items-center justify-center text-white flex-shrink-0', config.color)}>
-                        <IconComponent className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{expense.description || config.label}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {format(new Date(expense.expense_date), 'MMM d')}
-                        </p>
-                      </div>
-                            <span className="font-semibold">{formatCurrency(expense.amount, { maximumFractionDigits: 0 })}</span>
+            <motion.div
+              className="space-y-2"
+              variants={listVariants}
+              initial="hidden"
+              animate="show"
+            >
+              {recentExpenses.map((expense) => {
+                const config = CATEGORY_CONFIG[expense.category];
+                const IconComponent = getCategoryIcon(expense.category);
+                return (
+                  <motion.div
+                    key={expense.id}
+                    variants={itemVariants}
+                    className="flex items-center gap-3 p-3 rounded-2xl bg-white/4 border border-white/6 hover:bg-white/7 hover:border-primary/20 cursor-pointer transition-all"
+                    onClick={() => navigate(`/expenses/${expense.id}`)}
+                  >
+                    <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0', config.color)}>
+                      <IconComponent className="h-5 w-5" />
                     </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{expense.description || config.label}</p>
+                      <p className="text-xs text-muted-foreground">{format(new Date(expense.expense_date), 'MMM d')}</p>
+                    </div>
+                    <span className="font-display font-bold text-sm flex items-center gap-0.5 text-foreground/90 shrink-0">
+                      <IndianRupee className="h-3.5 w-3.5" />
+                      {expense.amount.toLocaleString('en-IN')}
+                    </span>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
           )}
-        </div>
+        </motion.div>
       </main>
 
       <BottomNav />
-      </div>
-    </PageTransition>
+    </div>
   );
 }

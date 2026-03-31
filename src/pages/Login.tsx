@@ -3,9 +3,8 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, IndianRupee } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { AuthLayout } from "@/components/auth/AuthLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,6 +16,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
 
 const loginSchema = z.object({
   email: z.string().trim().email("Please enter a valid email address"),
@@ -36,110 +36,147 @@ export default function Login() {
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
+    defaultValues: { email: "", password: "" },
   });
 
   async function onSubmit(values: LoginFormValues) {
     setIsLoading(true);
     const { error } = await signIn(values.email, values.password);
     setIsLoading(false);
-
     if (error) {
       toast.error(error.message || "Failed to sign in");
       return;
     }
-
-    toast.success("Welcome back!");
+    toast.success("Welcome back! 🎉");
     navigate(from, { replace: true });
   }
 
   return (
-    <AuthLayout
-      title="Welcome back"
-      subtitle="Sign in to continue tracking your expenses"
-    >
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <Input
-                    type="email"
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Background blobs */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-32 -left-32 h-64 w-64 rounded-full bg-primary/20 blur-[80px]" />
+        <div className="absolute -bottom-32 -right-32 h-64 w-64 rounded-full bg-secondary/15 blur-[80px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-96 w-96 rounded-full bg-accent/10 blur-[120px]" />
+      </div>
 
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Password</FormLabel>
-                <FormControl>
-                  <div className="relative">
-                    <Input
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      autoComplete="current-password"
-                      {...field}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-muted/50 rounded-r-md"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sign In
-          </Button>
-        </form>
-      </Form>
-
-      <div className="mt-6 text-center">
-        <Link
-          to="/forgot-password"
-          className="text-sm text-primary hover:underline"
+      <div className="relative flex flex-1 flex-col items-center justify-center px-6 py-12">
+        {/* Logo */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="mb-10 flex flex-col items-center gap-3"
         >
-          Forgot password?
-        </Link>
-      </div>
+          <div className="h-16 w-16 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center animate-pulse-glow">
+            <IndianRupee className="h-8 w-8 text-primary" />
+          </div>
+          <div className="text-center">
+            <h1 className="font-display text-3xl font-bold text-gradient">Kanakku</h1>
+            <p className="text-sm text-muted-foreground mt-1">your money, your vibe 💜</p>
+          </div>
+        </motion.div>
 
-      <div className="mt-8 text-center">
-        <p className="text-sm text-muted-foreground">
-          Don't have an account?{" "}
-          <Link to="/signup" className="font-medium text-primary hover:underline">
-            Sign up
-          </Link>
-        </p>
+        {/* Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+          className="w-full max-w-sm"
+        >
+          <div className="glass-card p-6 space-y-1">
+            <h2 className="font-display text-xl font-bold">Welcome back</h2>
+            <p className="text-sm text-muted-foreground pb-4">sign in to continue</p>
+
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-foreground/80">Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          id="login-email"
+                          type="email"
+                          placeholder="you@example.com"
+                          autoComplete="email"
+                          className="bg-white/5 border-white/10 focus:border-primary/60 placeholder:text-muted-foreground/50 rounded-xl h-12"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-foreground/80">Password</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input
+                            id="login-password"
+                            type={showPassword ? "text" : "password"}
+                            placeholder="••••••••"
+                            autoComplete="current-password"
+                            className="bg-white/5 border-white/10 focus:border-primary/60 placeholder:text-muted-foreground/50 rounded-xl h-12 pr-12"
+                            {...field}
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors"
+                            onClick={() => setShowPassword(!showPassword)}
+                          >
+                            {showPassword ? (
+                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <Eye className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="pt-1">
+                  <Button
+                    id="login-submit"
+                    type="submit"
+                    className="w-full h-12 rounded-xl font-display font-semibold text-base btn-glow bg-primary hover:bg-primary/90"
+                    disabled={isLoading}
+                  >
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isLoading ? "Signing in..." : "Sign In →"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+
+            <div className="pt-3 text-center">
+              <Link
+                to="/forgot-password"
+                className="text-sm text-primary/80 hover:text-primary transition-colors"
+              >
+                Forgot password?
+              </Link>
+            </div>
+          </div>
+
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            No account?{" "}
+            <Link to="/signup" className="font-semibold text-primary hover:text-primary/80 transition-colors">
+              Sign up free
+            </Link>
+          </p>
+        </motion.div>
       </div>
-    </AuthLayout>
+    </div>
   );
 }
