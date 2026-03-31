@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ConfettiBurst } from '@/components/ui/confetti-burst';
 import { useGroupMembers, useRecordSettlement, useSettlements } from '@/hooks/useGroups';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -30,6 +31,7 @@ export default function SettleUp() {
   const [selectedMember, setSelectedMember] = useState<string>(preselectedTo || '');
   const [amount, setAmount] = useState(preselectedAmount || '');
   const [note, setNote] = useState('');
+  const [confettiBurstKey, setConfettiBurstKey] = useState(0);
 
   useEffect(() => {
     if (preselectedTo) setSelectedMember(preselectedTo);
@@ -58,11 +60,18 @@ export default function SettleUp() {
       note: note.trim() || undefined,
     });
 
+    setConfettiBurstKey((prev) => prev + 1);
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, 620);
+    });
+
     navigate(`/groups/${groupId}`);
   };
 
   return (
     <div className="min-h-screen bg-background">
+      <ConfettiBurst burstKey={confettiBurstKey} originXPercent={50} originYPercent={78} />
+
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background border-b px-4 py-3">
         <div className="flex items-center gap-3">
@@ -155,7 +164,7 @@ export default function SettleUp() {
           className="w-full h-12 text-lg"
           disabled={!selectedMember || !parseFloat(amount) || recordSettlement.isPending}
         >
-          {recordSettlement.isPending ? 'Recording...' : 'Record Payment'}
+          {recordSettlement.isPending ? 'Settling...' : 'Settle Up'}
         </Button>
 
         {/* Recent Settlements */}

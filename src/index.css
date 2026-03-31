@@ -253,6 +253,30 @@
     60% { transform: scale(1.06); }
     100%{ transform: scale(1); }
   }
+
+  .confetti-particle {
+    position: absolute;
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.7) rotate(0deg);
+    animation-name: confetti-pop;
+    animation-timing-function: cubic-bezier(0.22, 0.8, 0.28, 1);
+    animation-fill-mode: forwards;
+    will-change: transform, opacity;
+  }
+
+  @keyframes confetti-pop {
+    0% {
+      opacity: 0;
+      transform: translate3d(0, 0, 0) scale(0.7) rotate(0deg);
+    }
+    8% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translate3d(var(--dx), var(--dy), 0) scale(1) rotate(var(--rot));
+    }
+  }
 }
 
 @layer utilities {

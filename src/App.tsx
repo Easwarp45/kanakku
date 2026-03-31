@@ -30,6 +30,7 @@ import Profile from "./pages/Profile";
 import AddIncome from "./pages/AddIncome";
 import Income from "./pages/Income";
 import IncomeDetail from "./pages/IncomeDetail";
+import MonthlyWrap from "./pages/MonthlyWrap";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -170,6 +171,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Analytics />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/wrap"
+              element={
+                <ProtectedRoute>
+                  <MonthlyWrap />
                 </ProtectedRoute>
               }
             />
