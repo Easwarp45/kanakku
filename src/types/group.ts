@@ -91,6 +91,17 @@ export interface CreateGroupExpenseInput {
   splits: { user_id: string; amount: number }[];
 }
 
+export interface UpdateGroupExpenseInput {
+  expense_id: string;
+  group_id: string;
+  amount: number;
+  description: string;
+  category: ExpenseCategory;
+  expense_date: string;
+  split_type: 'equal' | 'custom';
+  splits: { user_id: string; amount: number }[];
+}
+
 export interface MemberBalance {
   user_id: string;
   display_name: string;

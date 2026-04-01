@@ -5,6 +5,45 @@
  * @module performance
  */
 
+function getPerformanceApi(): Performance | undefined {
+  if (typeof globalThis === 'undefined' || typeof globalThis.performance === 'undefined') {
+    return undefined;
+  }
+
+  return globalThis.performance;
+}
+
+function canUseUserTiming(perf: Performance | undefined): perf is Performance {
+  return Boolean(
+    perf &&
+      typeof perf.mark === 'function' &&
+      typeof perf.measure === 'function' &&
+      typeof perf.getEntriesByName === 'function'
+  );
+}
+
+function safeClearMarks(perf: Performance | undefined, markName?: string) {
+  if (!perf || typeof perf.clearMarks !== 'function') return;
+
+  if (typeof markName === 'string') {
+    perf.clearMarks(markName);
+    return;
+  }
+
+  perf.clearMarks();
+}
+
+function safeClearMeasures(perf: Performance | undefined, measureName?: string) {
+  if (!perf || typeof perf.clearMeasures !== 'function') return;
+
+  if (typeof measureName === 'string') {
+    perf.clearMeasures(measureName);
+    return;
+  }
+
+  perf.clearMeasures();
+}
+
 /**
  * Measures and logs the render time of a component.
  *
@@ -21,14 +60,19 @@
  * ```
  */
 export function measureRender<T>(componentName: string, callback: () => T): T {
+  const perf = getPerformanceApi();
+  if (!canUseUserTiming(perf)) {
+    return callback();
+  }
+
   const markName = `${componentName}-start`;
   const measureName = `${componentName}-render`;
 
-  performance.mark(markName);
+  perf.mark(markName);
   const result = callback();
-  performance.measure(measureName, markName);
+  perf.measure(measureName, markName);
 
-  const measure = performance.getEntriesByName(measureName)[0];
+  const measure = perf.getEntriesByName(measureName)[0] as PerformanceMeasure | undefined;
   if (measure && measure.duration > 16) {
     // Log if render takes longer than 1 frame (16ms at 60fps)
     console.warn(
@@ -36,8 +80,8 @@ export function measureRender<T>(componentName: string, callback: () => T): T {
     );
   }
 
-  performance.clearMarks(markName);
-  performance.clearMeasures(measureName);
+  safeClearMarks(perf, markName);
+  safeClearMeasures(perf, measureName);
 
   return result;
 }
@@ -60,15 +104,18 @@ export function measureRender<T>(componentName: string, callback: () => T): T {
 export function useRenderTracking(componentName: string) {
   if (process.env.NODE_ENV !== 'development') return;
 
+  const perf = getPerformanceApi();
+  if (!canUseUserTiming(perf)) return;
+
   const startMark = `${componentName}-render-start`;
-  performance.mark(startMark);
+  perf.mark(startMark);
 
   // Use queueMicrotask to measure after render completes
   queueMicrotask(() => {
     const measureName = `${componentName}-render`;
-    performance.measure(measureName, startMark);
+    perf.measure(measureName, startMark);
 
-    const measure = performance.getEntriesByName(measureName)[0];
+    const measure = perf.getEntriesByName(measureName)[0] as PerformanceMeasure | undefined;
     if (measure) {
       const duration = measure.duration;
       if (duration > 16) {
@@ -82,8 +129,8 @@ export function useRenderTracking(componentName: string) {
       }
     }
 
-    performance.clearMarks(startMark);
-    performance.clearMeasures(measureName);
+    safeClearMarks(perf, startMark);
+    safeClearMeasures(perf, measureName);
   });
 }
 
@@ -106,11 +153,13 @@ export async function trackAsyncOperation<T>(
   operationName: string,
   operation: () => Promise<T>
 ): Promise<T> {
-  const startTime = performance.now();
+  const perf = getPerformanceApi();
+  const now = perf && typeof perf.now === 'function' ? () => perf.now() : () => Date.now();
+  const startTime = now();
 
   try {
     const result = await operation();
-    const duration = performance.now() - startTime;
+    const duration = now() - startTime;
 
     if (duration > 1000) {
       console.warn(
@@ -122,7 +171,7 @@ export async function trackAsyncOperation<T>(
 
     return result;
   } catch (error) {
-    const duration = performance.now() - startTime;
+    const duration = now() - startTime;
     console.error(
       `❌ ${operationName} failed after ${duration.toFixed(0)}ms:`,
       error
@@ -180,11 +229,21 @@ export function reportWebVitals(metric: any) {
  * @returns Object containing all performance entries
  */
 export function getPerformanceSnapshot() {
+  const perf = getPerformanceApi();
+  if (!perf || typeof perf.getEntriesByType !== 'function') {
+    return {
+      marks: [] as PerformanceEntry[],
+      measures: [] as PerformanceEntry[],
+      navigation: undefined,
+      resources: [] as PerformanceEntry[],
+    };
+  }
+
   return {
-    marks: performance.getEntriesByType('mark'),
-    measures: performance.getEntriesByType('measure'),
-    navigation: performance.getEntriesByType('navigation')[0],
-    resources: performance.getEntriesByType('resource'),
+    marks: perf.getEntriesByType('mark'),
+    measures: perf.getEntriesByType('measure'),
+    navigation: perf.getEntriesByType('navigation')[0],
+    resources: perf.getEntriesByType('resource'),
   };
 }
 
@@ -193,7 +252,8 @@ export function getPerformanceSnapshot() {
  * Useful when you want a clean slate for profiling.
  */
 export function clearAllPerformanceData() {
-  performance.clearMarks();
-  performance.clearMeasures();
+  const perf = getPerformanceApi();
+  safeClearMarks(perf);
+  safeClearMeasures(perf);
   console.log('🧹 Performance data cleared');
 }

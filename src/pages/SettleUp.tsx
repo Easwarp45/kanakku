@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ConfettiBurst } from '@/components/ui/confetti-burst';
-import { useGroupMembers, useRecordSettlement, useSettlements } from '@/hooks/useGroups';
+import { useGroupMembers, useRecordSettlement, useSettlements, useGroupBalances } from '@/hooks/useGroups';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
 import { format } from 'date-fns';
@@ -23,6 +23,7 @@ export default function SettleUp() {
   
   const { data: members = [] } = useGroupMembers(groupId);
   const { data: settlements = [] } = useSettlements(groupId);
+  const { simplifiedDebts } = useGroupBalances(groupId);
   const recordSettlement = useRecordSettlement();
 
   const preselectedTo = searchParams.get('to');
@@ -46,6 +47,28 @@ export default function SettleUp() {
 
   const otherMembers = members.filter(m => m.user_id !== user?.id);
   const selectedMemberData = members.find(m => m.user_id === selectedMember);
+
+  const handleQuickSettle = async (toUserId: string, baseAmount: number, noteLabel?: string) => {
+    if (!groupId || !toUserId || !baseAmount) return;
+    setSelectedMember(toUserId);
+    const localAmount = Math.round(convertFromBase(baseAmount) * 100) / 100;
+    setAmount(localAmount.toString());
+    setNote(noteLabel || '');
+
+    await recordSettlement.mutateAsync({
+      group_id: groupId,
+      paid_to: toUserId,
+      amount: baseAmount,
+      note: noteLabel || undefined,
+    });
+
+    setConfettiBurstKey((prev) => prev + 1);
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, 620);
+    });
+
+    navigate(`/groups/${groupId}`);
+  };
 
   const handleSubmit = async () => {
     const parsedAmount = parseFloat(amount);
@@ -166,6 +189,42 @@ export default function SettleUp() {
         >
           {recordSettlement.isPending ? 'Settling...' : 'Settle Up'}
         </Button>
+
+        {/* Quick settle from simplified debts */}
+        {simplifiedDebts.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="font-semibold">Suggested settlements</h2>
+            {simplifiedDebts.slice(0, 5).map((debt) => {
+              const payer = members.find(m => m.user_id === debt.from_user_id);
+              const receiver = members.find(m => m.user_id === debt.to_user_id);
+              const payerName = payer?.nickname || payer?.profile?.display_name || debt.from_name;
+              const receiverName = receiver?.nickname || receiver?.profile?.display_name || debt.to_name;
+
+              return (
+                <Card key={`${debt.from_user_id}-${debt.to_user_id}`}>
+                  <CardContent className="p-4 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-sm">{payerName} → {receiverName}</p>
+                      <p className="text-xs text-muted-foreground">Mark settled instantly</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-green-600">
+                        {formatCurrency(debt.amount, { maximumFractionDigits: 0 })}
+                      </span>
+                      <Button
+                        size="sm"
+                        onClick={() => handleQuickSettle(debt.to_user_id, debt.amount, 'Settled via quick action')}
+                        disabled={recordSettlement.isPending}
+                      >
+                        Mark settled
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
 
         {/* Recent Settlements */}
         {settlements.length > 0 && (

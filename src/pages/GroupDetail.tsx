@@ -28,6 +28,7 @@ import {
   useGroupMembers,
   useGroupExpenses,
   useGroupBalances,
+  useSettlements,
   useLeaveGroup,
   useRemoveGroupMember,
   useGroupChats,
@@ -66,6 +67,7 @@ export default function GroupDetail() {
   const { data: members = [], isLoading: loadingMembers } = useGroupMembers(id);
   const { data: expenses = [] } = useGroupExpenses(id);
   const { balances, simplifiedDebts } = useGroupBalances(id);
+  const { data: settlements = [] } = useSettlements(id);
   const { data: chats = [] } = useGroupChats(id);
   const leaveGroup = useLeaveGroup();
   const removeGroupMember = useRemoveGroupMember();
@@ -462,7 +464,7 @@ export default function GroupDetail() {
                               size="sm" 
                               className="ml-2"
                               onClick={() => {
-                                toast.info('Feature coming soon: Settle payments directly from app');
+                                navigate(`/groups/${id}/settle?to=${debt.to_user_id}&amount=${debt.amount}`);
                               }}
                             >
                               Mark Settled
@@ -517,6 +519,34 @@ export default function GroupDetail() {
               </CardContent>
             </Card>
           ))}
+
+            {settlements.length > 0 && (
+              <>
+                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mt-4">Recent Settlements</h3>
+                {settlements.slice(0, 6).map((s) => {
+                  const payer = members.find(m => m.user_id === s.paid_by);
+                  const receiver = members.find(m => m.user_id === s.paid_to);
+                  const payerName = payer?.nickname || payer?.profile?.display_name || 'Unknown';
+                  const receiverName = receiver?.nickname || receiver?.profile?.display_name || 'Unknown';
+
+                  return (
+                    <Card key={s.id}>
+                      <CardContent className="p-4 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-sm">{payerName} → {receiverName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(s.settled_at), 'MMM d, yyyy h:mm a')}
+                          </p>
+                        </div>
+                        <span className="font-semibold text-green-600">
+                          {formatCurrency(s.amount, { maximumFractionDigits: 0 })}
+                        </span>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </>
+            )}
         </TabsContent>
 
         {/* Members Tab */}

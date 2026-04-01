@@ -9,6 +9,7 @@ import type {
   Settlement,
   CreateGroupInput,
   CreateGroupExpenseInput,
+  UpdateGroupExpenseInput,
   MemberBalance,
   SimplifiedDebt
 } from '@/types/group';
@@ -451,6 +452,42 @@ export function useGroupExpenses(groupId: string | undefined) {
   });
 }
 
+// Fetch single group expense with splits
+export function useGroupExpense(expenseId: string | undefined) {
+  return useQuery({
+    queryKey: ['group-expense', expenseId],
+    queryFn: async () => {
+      if (!expenseId) return null;
+
+      const { data: expense, error } = await supabase
+        .from('group_expenses')
+        .select('id,group_id,paid_by,amount,category,description,expense_date,split_type')
+        .eq('id', expenseId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!expense) return null;
+
+      const { data: splits, error: splitsError } = await supabase
+        .from('expense_splits')
+        .select('id,user_id,amount')
+        .eq('group_expense_id', expenseId);
+
+      if (splitsError) throw splitsError;
+
+      return {
+        ...expense,
+        amount: Number(expense.amount),
+        category: expense.category as ExpenseCategory,
+        split_type: expense.split_type as 'equal' | 'custom',
+        splits: (splits || []).map(s => ({ ...s, amount: Number(s.amount) })),
+      } as GroupExpense & { splits: { id: string; user_id: string; amount: number }[] };
+    },
+    enabled: !!expenseId,
+    staleTime: 1000 * 60 * 3,
+  });
+}
+
 // Fetch expense splits for a group
 export function useExpenseSplits(groupId: string | undefined) {
   return useQuery({
@@ -739,6 +776,65 @@ export function useAddGroupExpense() {
     },
     onError: (error) => {
       toast.error('Failed to add expense: ' + error.message);
+    },
+  });
+}
+
+// Update group expense and its splits
+export function useUpdateGroupExpense() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: UpdateGroupExpenseInput) => {
+      if (!user) throw new Error('Not authenticated');
+
+      const { expense_id, group_id, ...rest } = input;
+
+      const { data: expense, error: expenseError } = await supabase
+        .from('group_expenses')
+        .update({
+          amount: rest.amount,
+          description: rest.description,
+          category: rest.category,
+          expense_date: rest.expense_date,
+          split_type: rest.split_type,
+        })
+        .eq('id', expense_id)
+        .eq('group_id', group_id)
+        .select('id')
+        .single();
+
+      if (expenseError) throw expenseError;
+
+      // Replace splits for the expense
+      await supabase
+        .from('expense_splits')
+        .delete()
+        .eq('group_expense_id', expense_id);
+
+      const newSplits = rest.splits.map(s => ({
+        group_expense_id: expense_id,
+        user_id: s.user_id,
+        amount: s.amount,
+      }));
+
+      const { error: splitsError } = await supabase
+        .from('expense_splits')
+        .insert(newSplits);
+
+      if (splitsError) throw splitsError;
+
+      return expense;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['group-expenses', variables.group_id] });
+      queryClient.invalidateQueries({ queryKey: ['expense-splits', variables.group_id] });
+      queryClient.invalidateQueries({ queryKey: ['group-expense', variables.expense_id] });
+      toast.success('Expense updated');
+    },
+    onError: (error) => {
+      toast.error('Failed to update expense: ' + error.message);
     },
   });
 }

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, Calendar, Users, Contact } from 'lucide-react';
+import { ArrowLeft, Calendar, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,22 +11,21 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useGroupMembers, useAddGroupExpense } from '@/hooks/useGroups';
+import { useGroupMembers, useGroupExpense, useUpdateGroupExpense } from '@/hooks/useGroups';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
 import { CATEGORY_CONFIG, type ExpenseCategory } from '@/types/expense';
 import { cn } from '@/lib/utils';
-import { useContacts } from '@/hooks/useContacts';
 import { toast } from 'sonner';
 
-export default function AddGroupExpense() {
+export default function EditGroupExpense() {
   const navigate = useNavigate();
-  const { id: groupId } = useParams();
+  const { id: groupId, expenseId } = useParams();
   const { user } = useAuth();
-  const { symbol, formatLocalCurrency, convertToBase } = useCurrency();
+  const { symbol, formatLocalCurrency, convertToBase, convertFromBase } = useCurrency();
   const { data: members = [] } = useGroupMembers(groupId);
-  const addExpense = useAddGroupExpense();
-  const { isSupported: contactsSupported, isFetching: contactsFetching, fetchContacts } = useContacts();
+  const { data: expense, isLoading } = useGroupExpense(expenseId);
+  const updateExpense = useUpdateGroupExpense();
 
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -36,28 +35,43 @@ export default function AddGroupExpense() {
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
 
-  // Initialize selected members with all members
   useEffect(() => {
-    if (members.length > 0 && selectedMembers.length === 0) {
+    if (expense) {
+      const localAmount = Math.round(convertFromBase(expense.amount) * 100) / 100;
+      setAmount(localAmount.toString());
+      setDescription(expense.description || '');
+      setCategory(expense.category);
+      setDate(new Date(expense.expense_date));
+      setIsCustomSplit(expense.split_type === 'custom');
+
+      const memberIds = expense.splits?.map(s => s.user_id) || [];
+      setSelectedMembers(memberIds);
+
+      if (expense.split_type === 'custom' && expense.splits) {
+        const next: Record<string, string> = {};
+        expense.splits.forEach(s => {
+          next[s.user_id] = (Math.round(convertFromBase(s.amount) * 100) / 100).toString();
+        });
+        setCustomAmounts(next);
+      }
+    }
+  }, [expense, convertFromBase]);
+
+  // Initialize selected members with all members if none and expense not loaded yet
+  useEffect(() => {
+    if (!expense && members.length > 0 && selectedMembers.length === 0) {
       setSelectedMembers(members.map(m => m.user_id));
     }
-  }, [members, selectedMembers.length]);
+  }, [expense, members, selectedMembers.length]);
 
   const parsedAmount = parseFloat(amount) || 0;
   const selectedCount = selectedMembers.length;
-  const equalShare = selectedCount > 0 ? parsedAmount / selectedCount : 0;
+  const equalShare = useMemo(() => (selectedCount > 0 ? parsedAmount / selectedCount : 0), [parsedAmount, selectedCount]);
 
-  const customTotal = Object.values(customAmounts).reduce(
-    (sum, val) => sum + (parseFloat(val) || 0), 
-    0
-  );
+  const customTotal = useMemo(() => Object.values(customAmounts).reduce((sum, val) => sum + (parseFloat(val) || 0), 0), [customAmounts]);
 
   const handleMemberToggle = (userId: string) => {
-    setSelectedMembers(prev => 
-      prev.includes(userId) 
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
-    );
+    setSelectedMembers(prev => prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]);
   };
 
   const handleCustomAmountChange = (userId: string, value: string) => {
@@ -72,44 +86,19 @@ export default function AddGroupExpense() {
     setCustomAmounts(next);
   };
 
-  const handleImportContacts = async () => {
-    const picked = await fetchContacts();
-    if (!picked.length) {
-      toast.error(contactsSupported ? 'No contacts selected' : 'Contact picker not supported on this device');
-      return;
-    }
-
-    const normalized = picked.map(c => c.name.toLowerCase()).filter(Boolean);
-    const matched = members
-      .filter(m => {
-        const name = (m.nickname || m.profile?.display_name || '').toLowerCase();
-        return name && normalized.some(n => name.includes(n));
-      })
-      .map(m => m.user_id);
-
-    if (!matched.length) {
-      toast.info('No matching group members found for selected contacts');
-      return;
-    }
-
-    setSelectedMembers(prev => Array.from(new Set([...prev, ...matched])));
-    toast.success(`Added ${matched.length} member${matched.length > 1 ? 's' : ''} from contacts`);
-  };
-
   const handleSubmit = async () => {
-    if (!groupId || !parsedAmount || !description.trim() || selectedCount === 0) return;
+    if (!groupId || !expenseId || !parsedAmount || !description.trim() || selectedCount === 0) return;
 
     const totalAmountInBaseCurrency = convertToBase(parsedAmount);
     const equalShareInBaseCurrency = selectedCount > 0 ? totalAmountInBaseCurrency / selectedCount : 0;
 
     const splits = selectedMembers.map(userId => ({
       user_id: userId,
-      amount: isCustomSplit 
-        ? convertToBase(parseFloat(customAmounts[userId] || '0'))
-        : equalShareInBaseCurrency,
+      amount: isCustomSplit ? convertToBase(parseFloat(customAmounts[userId] || '0')) : equalShareInBaseCurrency,
     }));
 
-    await addExpense.mutateAsync({
+    await updateExpense.mutateAsync({
+      expense_id: expenseId,
       group_id: groupId,
       amount: totalAmountInBaseCurrency,
       description: description.trim(),
@@ -122,6 +111,22 @@ export default function AddGroupExpense() {
     navigate(`/groups/${groupId}`);
   };
 
+  if (isLoading || !expense) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Loading expense...</p>
+      </div>
+    );
+  }
+
+  const isPayer = expense.paid_by === user?.id;
+
+  if (!isPayer) {
+    toast.error('Only the payer can edit this expense');
+    navigate(`/groups/${groupId}`);
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -130,7 +135,7 @@ export default function AddGroupExpense() {
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-lg font-semibold">Add Group Expense</h1>
+          <h1 className="text-lg font-semibold">Edit Group Expense</h1>
         </div>
       </header>
 
@@ -222,19 +227,6 @@ export default function AddGroupExpense() {
               <Label>Split Between</Label>
             </div>
             <div className="flex items-center gap-2">
-              {contactsSupported && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleImportContacts}
-                  disabled={contactsFetching}
-                  className="gap-2"
-                >
-                  <Contact className="h-4 w-4" />
-                  {contactsFetching ? 'Importing...' : 'Import contacts'}
-                </Button>
-              )}
               <Label htmlFor="custom-split" className="text-sm">Custom amounts</Label>
               <Switch
                 id="custom-split"
@@ -312,10 +304,10 @@ export default function AddGroupExpense() {
             !description.trim() || 
             selectedCount === 0 ||
             (isCustomSplit && Math.abs(customTotal - parsedAmount) > 0.01) ||
-            addExpense.isPending
+            updateExpense.isPending
           }
         >
-          {addExpense.isPending ? 'Adding...' : 'Add Expense'}
+          {updateExpense.isPending ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>
     </div>
