@@ -51,46 +51,34 @@ function getAvatarColor(str: string): string {
     'bg-pink-500', 'bg-teal-500', 'bg-indigo-500', 'bg-rose-500',
     'bg-amber-500', 'bg-cyan-500',
   ];
-              const canEdit = isPayer || isAdmin;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
 
-              return (
-                <Card key={expense.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div className={cn(
-                        'w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 text-sm font-bold',
-                        config.color
-                      )}>
-                        {config.label.charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm">{expense.description}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Paid by{' '}
-                          <span className={cn('font-semibold', isPayer && 'text-primary')}>
-                            {isPayer ? 'You' : payerName}
-                          </span>
-                          {' '}on {format(new Date(expense.expense_date), 'MMM d, yyyy')}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                        <p className="font-bold text-primary text-sm">{formatCurrency(expense.amount, { maximumFractionDigits: 0 })}</p>
-                        <p className="text-xs text-muted-foreground">{expense.category}</p>
-                        {canEdit && (
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => navigate(`/groups/${id}/expenses/${expense.id}/edit`)}
-                            className="h-8 w-8"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
+export default function GroupDetail() {
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const { user } = useAuth();
+  const { formatCurrency } = useCurrency();
+
+  const { data: group, isLoading: loadingGroup } = useGroup(id);
+  const { data: members = [], isLoading: loadingMembers } = useGroupMembers(id);
+  const { data: expenses = [] } = useGroupExpenses(id);
+  const { balances, simplifiedDebts } = useGroupBalances(id);
+  const { data: settlements = [] } = useSettlements(id);
+  const { data: chats = [] } = useGroupChats(id);
+  const leaveGroup = useLeaveGroup();
+  const removeGroupMember = useRemoveGroupMember();
+  const sendGroupChat = useSendGroupChat();
+
+  // useRef for the removal guard so concurrent effects don't create stale closures
+  // that read an outdated `removed` value and fire duplicate toasts/navigations.
+  const removedRef = useRef(false);
+  const [removed, setRemoved] = useState(false);
+
   const [copied, setCopied] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
@@ -388,6 +376,7 @@ function getAvatarColor(str: string): string {
               const config = CATEGORY_CONFIG[expense.category];
               const payerName = getMemberName(expense.paid_by);
               const isPayer = expense.paid_by === user?.id;
+              const canEdit = isPayer || isAdmin;
 
               return (
                 <Card key={expense.id}>
@@ -409,9 +398,19 @@ function getAvatarColor(str: string): string {
                           {' '}on {format(new Date(expense.expense_date), 'MMM d, yyyy')}
                         </p>
                       </div>
-                      <div className="text-right shrink-0">
+                      <div className="text-right shrink-0 flex flex-col items-end gap-1">
                         <p className="font-bold text-primary text-sm">{formatCurrency(expense.amount, { maximumFractionDigits: 0 })}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{expense.category}</p>
+                        <p className="text-xs text-muted-foreground">{expense.category}</p>
+                        {canEdit && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => navigate(`/groups/${id}/expenses/${expense.id}/edit`)}
+                            className="h-8 w-8"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardContent>

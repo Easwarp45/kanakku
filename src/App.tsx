@@ -9,6 +9,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 import { NotificationManager } from "@/components/notifications/NotificationManager";
 import { Onboarding } from "@/components/onboarding/Onboarding";
+import { RealtimeSync } from "@/components/realtime/RealtimeSync";
 
 // Pages
 import Login from "./pages/Login";
@@ -60,6 +61,7 @@ const App = () => (
         <OfflineIndicator />
         <NotificationManager />
         <Onboarding />
+        <RealtimeSync />
         <Toaster />
         <Sonner />
         <BrowserRouter>

@@ -44,13 +44,15 @@ export default function EditGroupExpense() {
       setDate(new Date(expense.expense_date));
       setIsCustomSplit(expense.split_type === 'custom');
 
-      const memberIds = expense.splits?.map(s => s.user_id) || [];
+      const memberIds = Array.from(new Set((expense.splits || []).filter(s => Number(s.amount) > 0).map(s => s.user_id)));
       setSelectedMembers(memberIds);
 
       if (expense.split_type === 'custom' && expense.splits) {
         const next: Record<string, string> = {};
-        expense.splits.forEach(s => {
-          next[s.user_id] = (Math.round(convertFromBase(s.amount) * 100) / 100).toString();
+        expense.splits
+          .filter(s => Number(s.amount) > 0)
+          .forEach(s => {
+            next[s.user_id] = (Math.round(convertFromBase(s.amount) * 100) / 100).toString();
         });
         setCustomAmounts(next);
       }

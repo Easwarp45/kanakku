@@ -791,6 +791,22 @@ export function useUpdateGroupExpense() {
 
       const { expense_id, group_id, ...rest } = input;
 
+      // Guard against duplicate member entries in splits.
+      // Last value wins when the same user appears multiple times.
+      const splitMap = new Map<string, number>();
+      rest.splits.forEach((split) => {
+        splitMap.set(split.user_id, Number(split.amount) || 0);
+      });
+
+      const normalizedSplits = Array.from(splitMap.entries()).map(([user_id, amount]) => ({
+        user_id,
+        amount,
+      }));
+
+      if (normalizedSplits.length === 0) {
+        throw new Error('At least one member split is required');
+      }
+
       const { data: expense, error: expenseError } = await supabase
         .from('group_expenses')
         .update({
@@ -807,21 +823,37 @@ export function useUpdateGroupExpense() {
 
       if (expenseError) throw expenseError;
 
-      // Replace splits for the expense
-      await supabase
+      // Try full replace first. If RLS blocks delete, we fall back to zeroing existing rows
+      // and then upserting the new set so updates still work.
+      const { error: deleteError } = await supabase
         .from('expense_splits')
         .delete()
         .eq('group_expense_id', expense_id);
 
-      const newSplits = rest.splits.map(s => ({
+      if (deleteError) {
+        const { error: zeroError } = await supabase
+          .from('expense_splits')
+          .update({
+            amount: 0,
+            is_settled: false,
+            settled_at: null,
+          })
+          .eq('group_expense_id', expense_id);
+
+        if (zeroError) throw zeroError;
+      }
+
+      const newSplits = normalizedSplits.map(s => ({
         group_expense_id: expense_id,
         user_id: s.user_id,
         amount: s.amount,
+        is_settled: false,
+        settled_at: null,
       }));
 
       const { error: splitsError } = await supabase
         .from('expense_splits')
-        .insert(newSplits);
+        .upsert(newSplits, { onConflict: 'group_expense_id,user_id' });
 
       if (splitsError) throw splitsError;
 
@@ -1013,8 +1045,7 @@ export function useGroupChats(groupId: string | undefined) {
       }
     },
     enabled: !!groupId,
-    staleTime: 1000 * 5, // 5 seconds - reduced for better real-time feel
-    refetchInterval: 5000, // Poll every 5 seconds for new messages
+    staleTime: 1000 * 30, // 30 seconds; refreshed via realtime websocket events
   });
 }
 
