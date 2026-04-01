@@ -22,6 +22,7 @@ import UPIIntegration from "./pages/UPIIntegration";
 import Groups from "./pages/Groups";
 import GroupDetail from "./pages/GroupDetail";
 import AddGroupExpense from "./pages/AddGroupExpense";
+import EditGroupExpense from "./pages/EditGroupExpense";
 import SettleUp from "./pages/SettleUp";
 import Analytics from "./pages/Analytics";
 import Budget from "./pages/Budget";
@@ -155,6 +156,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <AddGroupExpense />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/groups/:id/expenses/:expenseId/edit"
+              element={
+                <ProtectedRoute>
+                  <EditGroupExpense />
                 </ProtectedRoute>
               }
             />
