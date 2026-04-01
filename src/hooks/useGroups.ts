@@ -17,6 +17,16 @@ import type { ExpenseCategory } from '@/types/expense';
 import { generateInviteCode, formatInviteCode } from '@/lib/invite-code';
 import { toast } from 'sonner';
 
+export interface ContactUserMatch {
+  user_id: string;
+  display_name: string | null;
+  phone_number: string | null;
+}
+
+function normalizePhoneNumber(phone: string): string {
+  return phone.replace(/\D/g, '').slice(-10);
+}
+
 /**
  * Fetches all groups that the current user is a member of.
  *
@@ -724,6 +734,65 @@ export function useJoinGroup() {
     onError: (error) => {
       const errorMessage = error instanceof Error ? error.message : 'Failed to join group';
       toast.error(errorMessage);
+    },
+  });
+}
+
+// Find Kanakku users from phone contacts
+export function useFindContactUsers() {
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (phoneNumbers: string[]) => {
+      if (!user) throw new Error('Not authenticated');
+
+      const normalizedNumbers = Array.from(
+        new Set(phoneNumbers.map(normalizePhoneNumber).filter(Boolean))
+      );
+
+      if (!normalizedNumbers.length) return [] as ContactUserMatch[];
+
+      const { data, error } = await supabase.rpc('find_contacts_on_kanakku', {
+        phone_numbers: normalizedNumbers,
+      });
+
+      if (error) throw error;
+      return (data || []) as ContactUserMatch[];
+    },
+  });
+}
+
+// Add a user to a group (admin/creator only)
+export function useAddGroupMemberByAdmin() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: { groupId: string; userId: string }) => {
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .rpc('add_group_member_by_admin', {
+          group_uuid: input.groupId,
+          new_user_uuid: input.userId,
+        })
+        .single();
+
+      if (error) throw error;
+      return data as { added: boolean; reason: string | null };
+    },
+    onSuccess: (result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+      queryClient.invalidateQueries({ queryKey: ['group', variables.groupId] });
+      queryClient.invalidateQueries({ queryKey: ['group-members', variables.groupId] });
+
+      if (result.added) {
+        toast.success('Member added to group');
+      }
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Failed to add member';
+      toast.error(message);
     },
   });
 }

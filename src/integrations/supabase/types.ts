@@ -444,6 +444,18 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Array<{ group_id: string }>
       }
+      find_contacts_on_kanakku: {
+        Args: { phone_numbers: string[] }
+        Returns: Array<{
+          user_id: string
+          display_name: string | null
+          phone_number: string | null
+        }>
+      }
+      add_group_member_by_admin: {
+        Args: { group_uuid: string; new_user_uuid: string }
+        Returns: Array<{ added: boolean; reason: string | null }>
+      }
     }
     Enums: {
       expense_category:

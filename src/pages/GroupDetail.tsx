@@ -5,6 +5,7 @@ import {
   ArrowLeft, 
   Plus, 
   Users, 
+  Contact,
   Share2, 
   Receipt,
   ArrowRightLeft,
@@ -32,6 +33,8 @@ import {
   useSettlements,
   useLeaveGroup,
   useRemoveGroupMember,
+  useFindContactUsers,
+  useAddGroupMemberByAdmin,
   useGroupChats,
   useSendGroupChat,
   useCheckMyMembership,
@@ -42,6 +45,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { CATEGORY_CONFIG } from '@/types/expense';
 import { cn } from '@/lib/utils';
 import BottomNav from '@/components/layout/BottomNav';
+import { useContacts } from '@/hooks/useContacts';
 import { toast } from 'sonner';
 
 // Generate a deterministic color from a string (for avatars)
@@ -58,6 +62,10 @@ function getAvatarColor(str: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
+function normalizePhoneNumber(phone: string): string {
+  return phone.replace(/\D/g, '').slice(-10);
+}
+
 export default function GroupDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -72,7 +80,10 @@ export default function GroupDetail() {
   const { data: chats = [] } = useGroupChats(id);
   const leaveGroup = useLeaveGroup();
   const removeGroupMember = useRemoveGroupMember();
+  const findContactUsers = useFindContactUsers();
+  const addGroupMemberByAdmin = useAddGroupMemberByAdmin();
   const sendGroupChat = useSendGroupChat();
+  const { isSupported: contactsSupported, isFetching: contactsFetching, fetchContacts } = useContacts();
 
   // useRef for the removal guard so concurrent effects don't create stale closures
   // that read an outdated `removed` value and fire duplicate toasts/navigations.
@@ -82,6 +93,13 @@ export default function GroupDetail() {
   const [copied, setCopied] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
+  const [contactMatches, setContactMatches] = useState<Array<{
+    user_id: string;
+    display_name: string | null;
+    phone_number: string | null;
+    contact_name: string;
+    is_member: boolean;
+  }>>([]);
 
   // WebSocket-based real-time member removal detection
   // When removed, the DB trigger creates a notification that we receive instantly
@@ -212,6 +230,97 @@ export default function GroupDetail() {
       message: chatMessage,
     });
     setChatMessage('');
+  };
+
+  const handleImportContactUsers = async () => {
+    if (!id) return;
+
+    if (!isAdmin) {
+      toast.error('Only group admins can add members');
+      return;
+    }
+
+    const pickedContacts = await fetchContacts();
+    if (!pickedContacts.length) {
+      toast.error(contactsSupported ? 'No contacts selected' : 'Contact picker not supported on this device');
+      return;
+    }
+
+    const contactPhonePairs = pickedContacts.flatMap((contact) =>
+      (contact.phones || []).map((phone) => ({
+        phone,
+        contactName: contact.name || 'Contact',
+      }))
+    );
+
+    if (!contactPhonePairs.length) {
+      toast.error('Selected contacts do not have phone numbers');
+      return;
+    }
+
+    const uniquePhones = Array.from(new Set(contactPhonePairs.map((item) => item.phone)));
+    const users = await findContactUsers.mutateAsync(uniquePhones);
+
+    if (!users.length) {
+      setContactMatches([]);
+      toast.info('No Kanakku users found in selected contacts');
+      return;
+    }
+
+    const nameByNormalizedPhone = new Map<string, string>();
+    contactPhonePairs.forEach(({ phone, contactName }) => {
+      const normalized = normalizePhoneNumber(phone);
+      if (normalized && !nameByNormalizedPhone.has(normalized)) {
+        nameByNormalizedPhone.set(normalized, contactName);
+      }
+    });
+
+    const memberIds = new Set(members.map((member) => member.user_id));
+
+    const mappedUsers = users.map((contactUser) => {
+      const normalized = normalizePhoneNumber(contactUser.phone_number || '');
+      return {
+        ...contactUser,
+        contact_name: nameByNormalizedPhone.get(normalized) || contactUser.display_name || 'Contact',
+        is_member: memberIds.has(contactUser.user_id),
+      };
+    });
+
+    const dedupedUsers = Array.from(
+      new Map(mappedUsers.map((item) => [item.user_id, item])).values()
+    );
+
+    setContactMatches(dedupedUsers);
+
+    const addableCount = dedupedUsers.filter((user) => !user.is_member).length;
+    if (addableCount === 0) {
+      toast.info('All matched contacts are already in this group');
+      return;
+    }
+
+    toast.success(`Found ${addableCount} contact${addableCount > 1 ? 's' : ''} you can add`);
+  };
+
+  const handleAddContactMember = async (targetUserId: string) => {
+    if (!id) return;
+
+    const result = await addGroupMemberByAdmin.mutateAsync({
+      groupId: id,
+      userId: targetUserId,
+    });
+
+    if (!result.added) {
+      if (result.reason === 'already_member') {
+        toast.info('This user is already in the group');
+      }
+      return;
+    }
+
+    setContactMatches((prev) =>
+      prev.map((item) =>
+        item.user_id === targetUserId ? { ...item, is_member: true } : item
+      )
+    );
   };
 
   if (loadingGroup) {
@@ -587,8 +696,58 @@ export default function GroupDetail() {
               {copied && (
                 <p className="text-center text-xs text-green-600 font-medium">✓ Copied to clipboard!</p>
               )}
+
+              {isAdmin && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full gap-2"
+                  onClick={handleImportContactUsers}
+                  disabled={contactsFetching || findContactUsers.isPending || addGroupMemberByAdmin.isPending}
+                >
+                  <Contact className="h-4 w-4" />
+                  {contactsFetching || findContactUsers.isPending ? 'Reading contacts...' : 'Add Members From Contacts'}
+                </Button>
+              )}
+
+              {isAdmin && !contactsSupported && (
+                <p className="text-xs text-muted-foreground text-center">
+                  Contact picker is not supported on this device. Share the invite code instead.
+                </p>
+              )}
             </CardContent>
           </Card>
+
+          {isAdmin && contactMatches.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm">Contacts On Kanakku</CardTitle>
+                <CardDescription className="text-xs">Add matched contacts directly to this group</CardDescription>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-2">
+                {contactMatches.map((contactUser) => (
+                  <div key={contactUser.user_id} className="flex items-center justify-between rounded-lg border p-3 gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{contactUser.contact_name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {contactUser.display_name || 'Kanakku user'}
+                        {contactUser.phone_number ? ` • ${contactUser.phone_number}` : ''}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={contactUser.is_member ? 'secondary' : 'default'}
+                      disabled={contactUser.is_member || addGroupMemberByAdmin.isPending}
+                      onClick={() => handleAddContactMember(contactUser.user_id)}
+                    >
+                      {contactUser.is_member ? 'Added' : 'Add'}
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Members List */}
           <div className="space-y-2">
