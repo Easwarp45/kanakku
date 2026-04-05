@@ -41,6 +41,7 @@ const typeLabelMap = {
 export function InsightCard({ insight, onWhy, onTakeAction, compact = false }: InsightCardProps) {
   const style = typeStyleMap[insight.type];
   const TypeIcon = style.Icon;
+  const actionText = insight.actionLabel || 'Take Action';
 
   return (
     <article
@@ -61,7 +62,7 @@ export function InsightCard({ insight, onWhy, onTakeAction, compact = false }: I
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex items-center gap-2">
               <h3 className={cn('truncate text-sm font-semibold', style.title)}>{insight.title}</h3>
-              <span className="text-sm" role="img" aria-label="insight icon">{insight.icon}</span>
+              <span className="shrink-0 text-sm" role="img" aria-label="insight icon">{insight.icon}</span>
             </div>
 
             <p
@@ -75,26 +76,32 @@ export function InsightCard({ insight, onWhy, onTakeAction, compact = false }: I
               {insight.message}
             </p>
 
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <Badge variant="outline" className="text-[10px] bg-background/50">
-                {typeLabelMap[insight.type]}
-              </Badge>
+            <div className="pt-1 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Badge variant="outline" className="text-[10px] bg-background/50 shrink-0">
+                  {typeLabelMap[insight.type]}
+                </Badge>
 
-              <div className="flex items-center gap-1">
-                <Button size="sm" variant="ghost" className="h-8 px-2.5 text-xs" onClick={() => onWhy?.(insight)}>
-                  Why?
-                </Button>
                 <Button
                   size="sm"
-                  className="h-8 px-2.5 text-xs"
-                  variant={insight.type === 'warning' ? 'destructive' : 'default'}
-                  onClick={() => onTakeAction?.(insight)}
-                  disabled={!insight.actionRoute}
+                  variant="ghost"
+                  className="h-8 px-2.5 text-xs shrink-0"
+                  onClick={() => onWhy?.(insight)}
                 >
-                  {insight.actionLabel || 'Take Action'}
-                  <MoveRight className="h-3 w-3" />
+                  Why?
                 </Button>
               </div>
+
+              <Button
+                size="sm"
+                className="h-9 w-full px-3 text-xs justify-center min-[420px]:w-auto min-[420px]:max-w-full"
+                variant={insight.type === 'warning' ? 'destructive' : 'default'}
+                onClick={() => onTakeAction?.(insight)}
+                disabled={!insight.actionRoute}
+              >
+                <span className="truncate">{actionText}</span>
+                <MoveRight className="h-3 w-3 shrink-0" />
+              </Button>
             </div>
           </div>
         </div>

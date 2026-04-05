@@ -55,7 +55,7 @@ export default function InsightsHistory() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-20 overflow-x-hidden">
       <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
         <div className="flex items-center justify-between gap-2 p-4">
           <div className="flex items-center gap-2">
@@ -74,8 +74,8 @@ export default function InsightsHistory() {
           </Badge>
         </div>
 
-        <div className="overflow-x-auto px-4 pb-3">
-          <div className="flex min-w-max gap-2">
+        <div className="overflow-x-auto px-4 pb-3 scrollbar-hide">
+          <div className="flex min-w-max gap-2 pr-2">
             {FILTERS.map((filter) => (
               <Button
                 key={filter}
@@ -140,13 +140,13 @@ export default function InsightsHistory() {
                 </p>
               </div>
 
-              <div className="relative space-y-3 pl-5">
+              <div className="relative space-y-3 pl-4 min-[420px]:pl-5">
                 <div className="absolute left-2 top-0 h-full w-px bg-border" />
                 {groupedByDate[dateKey]
                   .sort((a, b) => a.priority - b.priority)
                   .map((insight) => (
                     <div key={`${insight.id}-${insight.recordedAt}`} className="relative">
-                      <span className="absolute -left-[17px] top-3 h-2.5 w-2.5 rounded-full bg-primary" />
+                      <span className="absolute -left-[14px] min-[420px]:-left-[17px] top-3 h-2.5 w-2.5 rounded-full bg-primary" />
                       <InsightCard
                         insight={insight}
                         compact
