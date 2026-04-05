@@ -15,6 +15,7 @@ import {
   User, Mail, Phone, Globe, Moon, Sun, LogOut,
   Save, Loader2, Shield, Info
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const CURRENCIES = [
   { value: 'INR', label: '₹ Indian Rupee (INR)' },
@@ -35,6 +36,8 @@ export default function Profile() {
   const [currency, setCurrency] = useState('INR');
   const [hasChanges, setHasChanges] = useState(false);
 
+  const normalizePhoneNumber = (value: string) => value.replace(/\D/g, '').slice(-10);
+
   useEffect(() => {
     if (profile) {
       setDisplayName(profile.display_name || '');
@@ -45,20 +48,36 @@ export default function Profile() {
 
   useEffect(() => {
     if (profile) {
+      const normalizedCurrentPhone = normalizePhoneNumber(phoneNumber);
+      const normalizedProfilePhone = normalizePhoneNumber(profile.phone_number || '');
       const changed =
         displayName !== (profile.display_name || '') ||
-        phoneNumber !== (profile.phone_number || '') ||
+        normalizedCurrentPhone !== normalizedProfilePhone ||
         currency !== (profile.currency || 'INR');
       setHasChanges(changed);
     }
   }, [displayName, phoneNumber, currency, profile]);
 
   const handleSave = async () => {
+    const trimmedPhone = phoneNumber.trim();
+    let normalizedPhone: string | undefined;
+
+    if (trimmedPhone) {
+      const digits = normalizePhoneNumber(trimmedPhone);
+      if (digits.length !== 10) {
+        toast.error('Please enter a valid 10-digit phone number');
+        return;
+      }
+      normalizedPhone = digits;
+    }
+
     await updateProfile.mutateAsync({
       display_name: displayName.trim() || undefined,
-      phone_number: phoneNumber.trim() || undefined,
+      phone_number: normalizedPhone,
       currency,
     });
+
+    setPhoneNumber(normalizedPhone || '');
     setHasChanges(false);
   };
 
@@ -141,10 +160,14 @@ export default function Profile() {
                       id="phone"
                       placeholder="+91 XXXXX XXXXX"
                       value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      onChange={(e) => setPhoneNumber(e.target.value.replace(/[^\d\s()+-]/g, ''))}
+                      inputMode="tel"
                       className="pl-9"
                     />
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Stored as a normalized 10-digit number for contact matching.
+                  </p>
                 </div>
               </CardContent>
             </Card>

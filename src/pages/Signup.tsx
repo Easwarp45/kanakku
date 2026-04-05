@@ -74,7 +74,7 @@ export default function Signup() {
         <div className="absolute top-1/3 right-1/4 h-48 w-48 rounded-full bg-secondary/12 blur-[80px]" />
       </div>
 
-      <div className="relative flex flex-1 flex-col items-center justify-center px-6 py-12">
+      <div className="relative flex flex-1 flex-col items-center justify-center px-4 sm:px-6 py-12">
         {/* Logo */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -86,7 +86,7 @@ export default function Signup() {
             <IndianRupee className="h-8 w-8 text-primary" />
           </div>
           <div className="text-center">
-            <h1 className="font-display text-3xl font-bold text-gradient">Kanakku</h1>
+            <h1 className="font-display text-2xl sm:text-3xl font-bold text-gradient">Kanakku</h1>
             <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1 justify-center">
               <Sparkles className="h-3.5 w-3.5 text-accent" />
               join the money gang
@@ -101,7 +101,7 @@ export default function Signup() {
           transition={{ duration: 0.4, delay: 0.1 }}
           className="w-full max-w-sm"
         >
-          <div className="glass-card p-6 space-y-1">
+          <div className="glass-card p-4 sm:p-6 space-y-1">
             <h2 className="font-display text-xl font-bold">Create account</h2>
             <p className="text-sm text-muted-foreground pb-4">free forever, no cap 🙌</p>
 

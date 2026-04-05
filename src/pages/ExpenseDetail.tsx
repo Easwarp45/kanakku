@@ -293,7 +293,7 @@ export default function ExpenseDetail() {
         {/* Category */}
         <div className="space-y-2">
           <Label>Category</Label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-2">
             {(Object.entries(CATEGORY_CONFIG) as [ExpenseCategory, typeof CATEGORY_CONFIG[ExpenseCategory]][]).map(
               ([key, cfg]) => (
                 <button

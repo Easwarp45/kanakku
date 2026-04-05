@@ -1080,7 +1080,8 @@ export function useGroupChats(groupId: string | undefined) {
           .from('group_chats')
           .select('id,group_id,user_id,message,created_at,updated_at')
           .eq('group_id', groupId)
-          .order('created_at', { ascending: true });
+          .order('created_at', { ascending: false })
+          .limit(50);
 
         if (messagesError) throw messagesError;
         if (!messages || messages.length === 0) return [];
@@ -1103,11 +1104,12 @@ export function useGroupChats(groupId: string | undefined) {
           return acc;
         }, {} as Record<string, any>);
 
-        // Combine messages with profiles
+        // Combine messages with profiles.
+        // We fetch latest 50 in descending order, then reverse for chronological UI rendering.
         return messages.map(message => ({
           ...message,
           profiles: profileMap[message.user_id] || { user_id: message.user_id, display_name: null, avatar_url: null },
-        }));
+        })).reverse();
       } catch (error) {
         console.error('Error fetching group chats:', error);
         throw error;

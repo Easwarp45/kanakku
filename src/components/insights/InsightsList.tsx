@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { InsightCard } from './InsightCard';
-import { Card, CardContent } from '@/components/ui/card';
+import { InsightWhyDrawer } from './InsightWhyDrawer';
 import type { Insight } from '@/types/insights';
 
 interface InsightsListProps {
@@ -8,72 +9,97 @@ interface InsightsListProps {
   isLoading?: boolean;
 }
 
+const PLACEHOLDER_INSIGHTS: Insight[] = [
+  {
+    id: 'placeholder-warning',
+    type: 'warning',
+    priority: 1,
+    icon: '!',
+    title: 'Budget Risk Preview',
+    message: 'Keep tracking daily to unlock early budget-risk alerts.',
+    actionRoute: '/add-expense',
+    actionLabel: 'Log Expense',
+    why: {
+      previous: 0,
+      current: 0,
+      change: 'awaiting activity',
+      reason: 'Insights start adapting once more transaction patterns are available.',
+      valueKind: 'count',
+    },
+    createdAt: Date.now(),
+  },
+  {
+    id: 'placeholder-info',
+    type: 'info',
+    priority: 3,
+    icon: 'i',
+    title: 'Trend Preview',
+    message: 'Your spending trend forecast will appear after more activity.',
+    actionRoute: '/expenses',
+    actionLabel: 'View Expenses',
+    why: {
+      previous: 0,
+      current: 0,
+      change: 'awaiting activity',
+      reason: 'Monthly trend rules compare current and previous periods.',
+      valueKind: 'count',
+    },
+    createdAt: Date.now(),
+  },
+];
+
 export function InsightsList({ insights, isLoading }: InsightsListProps) {
-  const groupedInsights = useMemo(() => {
-    return {
-      high: insights.filter(i => i.priority === 'high'),
-      medium: insights.filter(i => i.priority === 'medium'),
-      low: insights.filter(i => i.priority === 'low'),
-    };
-  }, [insights]);
+  const navigate = useNavigate();
+  const [selectedInsight, setSelectedInsight] = useState<Insight | null>(null);
+  const [whyOpen, setWhyOpen] = useState(false);
+
+  const displayedInsights = useMemo(
+    () => (insights.length > 0 ? insights : PLACEHOLDER_INSIGHTS).sort((a, b) => a.priority - b.priority),
+    [insights]
+  );
+
+  const openWhyDrawer = (insight: Insight) => {
+    setSelectedInsight(insight);
+    setWhyOpen(true);
+  };
+
+  const handleTakeAction = (insight: Insight) => {
+    navigate(insight.actionRoute || '/analytics');
+  };
 
   if (isLoading) {
     return (
       <div className="space-y-3">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="h-20 bg-muted rounded-lg animate-pulse" />
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-28 animate-pulse rounded-[16px] bg-muted" />
         ))}
       </div>
     );
   }
 
-  if (insights.length === 0) {
-    return (
-      <Card>
-        <CardContent className="py-8 text-center">
-          <p className="text-muted-foreground">No insights available yet</p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Add some expenses to get personalized financial insights
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      {groupedInsights.high.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-red-600">High Priority</h3>
-          <div className="space-y-3">
-            {groupedInsights.high.map(insight => (
-              <InsightCard key={insight.id} insight={insight} />
-            ))}
-          </div>
-        </div>
-      )}
+    <>
+      <div className="space-y-3">
+        {displayedInsights.map((insight) => (
+          <InsightCard
+            key={insight.id}
+            insight={insight}
+            onWhy={openWhyDrawer}
+            onTakeAction={handleTakeAction}
+          />
+        ))}
+      </div>
 
-      {groupedInsights.medium.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-yellow-600">Medium Priority</h3>
-          <div className="space-y-3">
-            {groupedInsights.medium.map(insight => (
-              <InsightCard key={insight.id} insight={insight} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {groupedInsights.low.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-blue-600">Low Priority</h3>
-          <div className="space-y-3">
-            {groupedInsights.low.map(insight => (
-              <InsightCard key={insight.id} insight={insight} />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+      <InsightWhyDrawer
+        insight={selectedInsight}
+        open={whyOpen}
+        onOpenChange={(next) => {
+          setWhyOpen(next);
+          if (!next) {
+            setSelectedInsight(null);
+          }
+        }}
+      />
+    </>
   );
 }

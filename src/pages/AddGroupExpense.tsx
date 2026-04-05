@@ -169,7 +169,7 @@ export default function AddGroupExpense() {
         {/* Category */}
         <div className="space-y-2">
           <Label>Category</Label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-2">
             {(Object.entries(CATEGORY_CONFIG) as [ExpenseCategory, typeof CATEGORY_CONFIG[ExpenseCategory]][]).map(
               ([key, config]) => (
                 <button
@@ -216,12 +216,12 @@ export default function AddGroupExpense() {
 
         {/* Split Options */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
             <div className="flex items-center gap-2">
               <Users className="h-5 w-5 text-muted-foreground" />
               <Label>Split Between</Label>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {contactsSupported && (
                 <Button
                   type="button"

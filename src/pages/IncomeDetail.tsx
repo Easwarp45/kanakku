@@ -215,7 +215,7 @@ export default function IncomeDetail() {
         {/* Source */}
         <div className="space-y-2">
           <Label>Source</Label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-2">
             {(Object.entries(INCOME_SOURCE_CONFIG) as [IncomeSource, typeof INCOME_SOURCE_CONFIG[IncomeSource]][]).map(
               ([key, cfg]) => (
                 <button

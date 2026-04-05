@@ -16,8 +16,8 @@ export default function BottomNav() {
   const location = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pb-4 safe-bottom px-4">
-      <div className="nav-pill flex items-center gap-1 px-3 py-2 w-full max-w-sm">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pb-4 safe-bottom px-2 sm:px-4">
+      <div className="nav-pill flex items-center gap-0.5 px-1.5 sm:px-3 py-2 w-full max-w-sm">
         {navItems.map(({ to, icon: Icon, label }) => {
           const isActive = location.pathname === to || location.pathname.startsWith(to + '/');
           return (
@@ -41,7 +41,7 @@ export default function BottomNav() {
               />
               <span
                 className={cn(
-                  'relative text-[9px] font-medium transition-colors',
+                  'relative text-[8px] sm:text-[9px] font-medium transition-colors',
                   isActive ? 'text-primary' : 'text-muted-foreground'
                 )}
               >

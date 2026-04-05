@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, TrendingDown, Download, Calendar, Wallet, Receipt, Target } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Download, Calendar, Wallet, Receipt, Target, History } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,18 +17,23 @@ import {
   PieChart, Pie, Cell, Legend, BarChart, Bar
 } from 'recharts';
 
-// Chart colors using HSL values from design system
+// Theme-aware chart colors from design-system CSS variables
 const CHART_COLORS = [
-  'hsl(217, 91%, 60%)',   // Primary blue
-  'hsl(160, 84%, 39%)',   // Secondary green
-  'hsl(38, 92%, 50%)',    // Accent orange
-  'hsl(280, 65%, 60%)',   // Purple
-  'hsl(340, 80%, 60%)',   // Pink
-  'hsl(190, 80%, 45%)',   // Teal
-  'hsl(0, 84%, 60%)',     // Red
-  'hsl(50, 90%, 50%)',    // Yellow
-  'hsl(220, 14%, 50%)',   // Gray
+  'hsl(var(--primary))',
+  'hsl(var(--secondary))',
+  'hsl(var(--accent))',
+  'hsl(var(--destructive))',
+  'hsl(var(--ring))',
+  'hsl(var(--muted-foreground))',
+  'hsl(var(--primary) / 0.75)',
+  'hsl(var(--secondary) / 0.75)',
+  'hsl(var(--accent) / 0.75)',
 ];
+
+const GRID_COLOR = 'hsl(var(--border))';
+const AXIS_COLOR = 'hsl(var(--muted-foreground))';
+const TOOLTIP_BG = 'hsl(var(--card))';
+const TOOLTIP_BORDER = 'hsl(var(--border))';
 
 export default function Analytics() {
   const navigate = useNavigate();
@@ -36,6 +41,14 @@ export default function Analytics() {
   const { formatCurrency, formatCompactCurrency } = useCurrency();
   const { data: analytics, isLoading } = useAnalytics(period);
   const { insights, isLoading: insightsLoading } = useSmartInsights();
+
+  const formatGridAmount = (value: number) => {
+    const full = formatCurrency(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (full.length > 12) {
+      return formatCompactCurrency(value);
+    }
+    return full;
+  };
 
   const handleExport = () => {
     if (!analytics) return;
@@ -71,9 +84,9 @@ export default function Analytics() {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="text-lg font-semibold text-foreground">
+        <div style={{ background: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: '12px', padding: '10px 14px' }}>
+          <p className="text-xs text-muted-foreground mb-1">{label}</p>
+          <p className="text-base font-bold text-foreground">
             {formatCurrency(payload[0].value)}
           </p>
         </div>
@@ -128,15 +141,18 @@ export default function Analytics() {
         ) : analytics ? (
           <>
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 gap-4">
-              <Card className="bg-card">
-                <CardContent className="p-4">
+            <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-4 items-stretch">
+              <Card className="bg-card h-full">
+                <CardContent className="p-4 h-full flex flex-col justify-between">
                   <div className="flex items-center gap-2 mb-2">
                     <Wallet className="h-4 w-4 text-primary" />
                     <span className="text-sm text-muted-foreground">Total Spent</span>
                   </div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {formatCurrency(analytics.totalSpent)}
+                  <p
+                    className="text-[clamp(1.4rem,5vw,2rem)] font-bold text-foreground leading-tight truncate tabular-nums"
+                    title={formatCurrency(analytics.totalSpent, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  >
+                    {formatGridAmount(analytics.totalSpent)}
                   </p>
                   <div className="flex items-center gap-1 mt-1">
                     {analytics.percentageChange >= 0 ? (
@@ -144,21 +160,24 @@ export default function Analytics() {
                     ) : (
                       <TrendingDown className="h-3 w-3 text-secondary" />
                     )}
-                    <span className={`text-xs ${analytics.percentageChange >= 0 ? 'text-destructive' : 'text-secondary'}`}>
+                    <span className={`text-xs truncate ${analytics.percentageChange >= 0 ? 'text-destructive' : 'text-secondary'}`}>
                       {Math.abs(analytics.percentageChange).toFixed(1)}% vs last {period}
                     </span>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-card">
-                <CardContent className="p-4">
+              <Card className="bg-card h-full">
+                <CardContent className="p-4 h-full flex flex-col justify-between">
                   <div className="flex items-center gap-2 mb-2">
                     <Calendar className="h-4 w-4 text-secondary" />
                     <span className="text-sm text-muted-foreground">Daily Avg</span>
                   </div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {formatCurrency(analytics.averagePerDay)}
+                  <p
+                    className="text-[clamp(1.4rem,5vw,2rem)] font-bold text-foreground leading-tight truncate tabular-nums"
+                    title={formatCurrency(analytics.averagePerDay, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  >
+                    {formatGridAmount(analytics.averagePerDay)}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     per day
@@ -166,13 +185,13 @@ export default function Analytics() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-card">
-                <CardContent className="p-4">
+              <Card className="bg-card h-full">
+                <CardContent className="p-4 h-full flex flex-col justify-between">
                   <div className="flex items-center gap-2 mb-2">
                     <Receipt className="h-4 w-4 text-accent" />
                     <span className="text-sm text-muted-foreground">Transactions</span>
                   </div>
-                  <p className="text-2xl font-bold text-foreground">
+                  <p className="text-[clamp(1.4rem,5vw,2rem)] font-bold text-foreground leading-tight truncate tabular-nums">
                     {analytics.transactionCount}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -181,14 +200,17 @@ export default function Analytics() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-card">
-                <CardContent className="p-4">
+              <Card className="bg-card h-full">
+                <CardContent className="p-4 h-full flex flex-col justify-between">
                   <div className="flex items-center gap-2 mb-2">
                     <Target className="h-4 w-4 text-primary" />
                     <span className="text-sm text-muted-foreground">Previous</span>
                   </div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {formatCurrency(analytics.previousPeriodTotal)}
+                  <p
+                    className="text-[clamp(1.4rem,5vw,2rem)] font-bold text-foreground leading-tight truncate tabular-nums"
+                    title={formatCurrency(analytics.previousPeriodTotal, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  >
+                    {formatGridAmount(analytics.previousPeriodTotal)}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     last {period}
@@ -196,27 +218,33 @@ export default function Analytics() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-card">
-                <CardContent className="p-4">
+              <Card className="bg-card h-full">
+                <CardContent className="p-4 h-full flex flex-col justify-between">
                   <div className="flex items-center gap-2 mb-2">
                     <Wallet className="h-4 w-4 text-secondary" />
                     <span className="text-sm text-muted-foreground">Total Income</span>
                   </div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {formatCurrency(analytics.totalIncome)}
+                  <p
+                    className="text-[clamp(1.4rem,5vw,2rem)] font-bold text-foreground leading-tight truncate tabular-nums"
+                    title={formatCurrency(analytics.totalIncome, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  >
+                    {formatGridAmount(analytics.totalIncome)}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">this {period}</p>
                 </CardContent>
               </Card>
 
-              <Card className="bg-card">
-                <CardContent className="p-4">
+              <Card className="bg-card h-full">
+                <CardContent className="p-4 h-full flex flex-col justify-between">
                   <div className="flex items-center gap-2 mb-2">
                     <Target className="h-4 w-4 text-accent" />
                     <span className="text-sm text-muted-foreground">Net Savings</span>
                   </div>
-                  <p className={`text-2xl font-bold ${analytics.netSavings >= 0 ? 'text-secondary' : 'text-destructive'}`}>
-                    {formatCurrency(analytics.netSavings)}
+                  <p
+                    className={`text-[clamp(1.4rem,5vw,2rem)] font-bold leading-tight truncate tabular-nums ${analytics.netSavings >= 0 ? 'text-secondary' : 'text-destructive'}`}
+                    title={formatCurrency(analytics.netSavings, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  >
+                    {formatGridAmount(analytics.netSavings)}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">income minus expenses</p>
                 </CardContent>
@@ -230,24 +258,24 @@ export default function Analytics() {
               </CardHeader>
               <CardContent>
                 {analytics.trendData.length > 0 ? (
-                  <div className="h-64">
+                  <div className="h-52 min-[420px]:h-64">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={analytics.trendData}>
                         <defs>
                           <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0}/>
+                            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.35}/>
+                            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 32%, 91%)" />
+                        <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
                         <XAxis 
                           dataKey="label" 
-                          tick={{ fontSize: 12, fill: 'hsl(215, 16%, 47%)' }}
+                          tick={{ fontSize: 11, fill: AXIS_COLOR }}
                           tickLine={false}
                           axisLine={false}
                         />
                         <YAxis 
-                          tick={{ fontSize: 12, fill: 'hsl(215, 16%, 47%)' }}
+                          tick={{ fontSize: 11, fill: AXIS_COLOR }}
                           tickLine={false}
                           axisLine={false}
                           tickFormatter={(value) => formatCompactCurrency(value)}
@@ -256,7 +284,7 @@ export default function Analytics() {
                         <Area
                           type="monotone"
                           dataKey="amount"
-                          stroke="hsl(217, 91%, 60%)"
+                          stroke="hsl(var(--primary))"
                           strokeWidth={2}
                           fillOpacity={1}
                           fill="url(#colorAmount)"
@@ -279,7 +307,7 @@ export default function Analytics() {
               </CardHeader>
               <CardContent>
                 {analytics.categoryBreakdown.length > 0 ? (
-                  <div className="h-64">
+                  <div className="h-52 min-[420px]:h-64">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -301,6 +329,13 @@ export default function Analytics() {
                         </Pie>
                         <Tooltip 
                           formatter={(value: number) => formatCurrency(value)}
+                          contentStyle={{
+                            backgroundColor: TOOLTIP_BG,
+                            border: `1px solid ${TOOLTIP_BORDER}`,
+                            borderRadius: '12px',
+                          }}
+                          labelStyle={{ color: AXIS_COLOR }}
+                          itemStyle={{ color: AXIS_COLOR }}
                         />
                         <Legend 
                           formatter={(value) => <span className="text-foreground text-sm">{value}</span>}
@@ -323,36 +358,36 @@ export default function Analytics() {
               </CardHeader>
               <CardContent>
                 {analytics.topCategories.length > 0 ? (
-                  <div className="h-64">
+                  <div className="h-52 min-[420px]:h-64">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart 
                         data={analytics.topCategories} 
                         layout="vertical"
                         margin={{ left: 20, right: 20 }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 32%, 91%)" />
+                        <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
                         <XAxis 
                           type="number" 
-                          tick={{ fontSize: 12, fill: 'hsl(215, 16%, 47%)' }}
+                          tick={{ fontSize: 11, fill: AXIS_COLOR }}
                           tickFormatter={(value) => formatCompactCurrency(value)}
                         />
                         <YAxis 
                           type="category" 
                           dataKey="label"
-                          tick={{ fontSize: 12, fill: 'hsl(215, 16%, 47%)' }}
+                          tick={{ fontSize: 11, fill: AXIS_COLOR }}
                           width={80}
                         />
                         <Tooltip 
                           formatter={(value: number) => formatCurrency(value)}
                           contentStyle={{
-                            backgroundColor: 'hsl(0, 0%, 100%)',
-                            border: '1px solid hsl(214, 32%, 91%)',
-                            borderRadius: '8px',
+                            backgroundColor: TOOLTIP_BG,
+                            border: `1px solid ${TOOLTIP_BORDER}`,
+                            borderRadius: '12px',
                           }}
                         />
                         <Bar 
                           dataKey="amount" 
-                          fill="hsl(217, 91%, 60%)"
+                          fill="hsl(var(--primary))"
                           radius={[0, 4, 4, 0]}
                         />
                       </BarChart>
@@ -372,22 +407,31 @@ export default function Analytics() {
                 <CardTitle className="text-lg">Income vs Expense</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-56">
+                <div className="h-48 min-[420px]:h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={[
                       { label: 'Income', amount: analytics.totalIncome },
                       { label: 'Expense', amount: analytics.totalSpent },
                     ]}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 32%, 91%)" />
-                      <XAxis dataKey="label" tick={{ fontSize: 12, fill: 'hsl(215, 16%, 47%)' }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
+                      <XAxis dataKey="label" tick={{ fontSize: 12, fill: AXIS_COLOR }} />
                       <YAxis
-                        tick={{ fontSize: 12, fill: 'hsl(215, 16%, 47%)' }}
+                        tick={{ fontSize: 12, fill: AXIS_COLOR }}
                         tickFormatter={(value) => formatCompactCurrency(value)}
                       />
-                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                      <Tooltip
+                        formatter={(value: number) => formatCurrency(value)}
+                        contentStyle={{
+                          backgroundColor: TOOLTIP_BG,
+                          border: `1px solid ${TOOLTIP_BORDER}`,
+                          borderRadius: '12px',
+                        }}
+                        labelStyle={{ color: AXIS_COLOR }}
+                        itemStyle={{ color: AXIS_COLOR }}
+                      />
                       <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
-                        <Cell fill="hsl(160, 84%, 39%)" />
-                        <Cell fill="hsl(0, 84%, 60%)" />
+                        <Cell fill="hsl(var(--secondary))" />
+                        <Cell fill="hsl(var(--destructive))" />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -447,7 +491,13 @@ export default function Analytics() {
 
       {/* Smart Insights Section */}
       <div className="p-4 space-y-4">
-        <h2 className="text-lg font-semibold px-4">Financial Insights</h2>
+        <div className="flex items-center justify-between px-4">
+          <h2 className="text-lg font-semibold">Financial Insights</h2>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate('/insights/history')}>
+            <History className="h-3.5 w-3.5" />
+            History
+          </Button>
+        </div>
         <InsightsList insights={insights} isLoading={insightsLoading} />
       </div>
 

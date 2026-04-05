@@ -93,6 +93,7 @@ export default function GroupDetail() {
   const [copied, setCopied] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
+  const lastMessageSentAtRef = useRef(0);
   const [contactMatches, setContactMatches] = useState<Array<{
     user_id: string;
     display_name: string | null;
@@ -216,6 +217,11 @@ export default function GroupDetail() {
 
   const handleSendMessage = async () => {
     if (!id || !chatMessage.trim()) return;
+    if (sendGroupChat.isPending) return;
+
+    const now = Date.now();
+    if (now - lastMessageSentAtRef.current < 600) return;
+    lastMessageSentAtRef.current = now;
     
     // Verify user is still a member before sending message
     const isCurrentUserMember = members.some(m => m.user_id === user?.id);

@@ -26,6 +26,7 @@ import AddGroupExpense from "./pages/AddGroupExpense";
 import EditGroupExpense from "./pages/EditGroupExpense";
 import SettleUp from "./pages/SettleUp";
 import Analytics from "./pages/Analytics";
+import InsightsHistory from "./pages/InsightsHistory";
 import Budget from "./pages/Budget";
 import Install from "./pages/Install";
 import Profile from "./pages/Profile";
@@ -55,7 +56,7 @@ const queryClient = new QueryClient({
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
     <AuthProvider>
       <TooltipProvider>
         <OfflineIndicator />
@@ -182,6 +183,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Analytics />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/insights/history"
+              element={
+                <ProtectedRoute>
+                  <InsightsHistory />
                 </ProtectedRoute>
               }
             />

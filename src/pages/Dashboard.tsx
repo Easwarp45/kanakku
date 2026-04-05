@@ -11,9 +11,9 @@ import BottomNav from '@/components/layout/BottomNav';
 import { CountUpNumber } from '@/components/ui/count-up-number';
 import {
   LogOut, Plus, Users, TrendingUp,
-  Smartphone, Target, Bell, Zap, ArrowUpRight, Sparkles
+  Smartphone, Target, Bell, Zap, ArrowUpRight, Sparkles, History
 } from 'lucide-react';
-import { InsightsWidget } from '@/components/insights';
+import { FinancialHealthPanel, InsightsWidget } from '@/components/insights';
 import { useNotifications } from '@/hooks/useNotifications';
 import { CATEGORY_CONFIG } from '@/types/expense';
 import { getCategoryIcon } from '@/lib/category-icons';
@@ -36,7 +36,7 @@ export default function Dashboard() {
   const { data: recentExpenses = [], isLoading: loadingRecent } = useRecentExpenses(5);
   const { data: todayTotal = 0 } = useTodayTotal();
   const { data: monthlyTotal = 0 } = useMonthlyTotal();
-  const { insights, isLoading: insightsLoading } = useSmartInsights();
+  const { insights, gamification, isLoading: insightsLoading } = useSmartInsights();
 
   const quickActionsRef = useRef<HTMLDivElement | null>(null);
   const [showQuickActionFadeLeft, setShowQuickActionFadeLeft] = useState(false);
@@ -59,6 +59,7 @@ export default function Dashboard() {
     { icon: Users,      label: 'Split',   path: '/groups',       color: 'from-pink-500 to-rose-600' },
     { icon: Target,     label: 'Budget',  path: '/budget',       color: 'from-amber-500 to-orange-600' },
     { icon: TrendingUp, label: 'Stats',   path: '/analytics',    color: 'from-emerald-500 to-teal-600' },
+    { icon: History,    label: 'History', path: '/insights/history', color: 'from-slate-500 to-zinc-600' },
     { icon: Sparkles,   label: 'Wrap',    path: '/wrap',         color: 'from-indigo-500 to-violet-600' },
   ];
 
@@ -138,14 +139,14 @@ export default function Dashboard() {
 
         {/* ── Bento Hero: Balance + Today ── */}
         <motion.div
-          className="grid grid-cols-2 gap-3"
+          className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-3"
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.05 }}
         >
           {/* Monthly total — big hero */}
           <div
-            className="bento-card col-span-2 cursor-pointer group"
+            className="bento-card col-span-1 min-[360px]:col-span-2 cursor-pointer group"
             onClick={() => navigate('/expenses')}
             style={{
               background: 'linear-gradient(135deg, rgba(168,85,247,0.18) 0%, rgba(12,200,224,0.08) 100%)',
@@ -160,7 +161,7 @@ export default function Dashboard() {
                   <CountUpNumber
                     value={monthlyDisplayTotal}
                     durationMs={950}
-                    className="font-display text-4xl font-bold amount-neutral"
+                    className="font-display text-[clamp(1.8rem,9vw,2.5rem)] font-bold amount-neutral truncate"
                     formatter={(value) => formatLocalNumber(value, { maximumFractionDigits: 0 })}
                   />
                 </div>
@@ -248,6 +249,14 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.15 }}
+        >
+          <FinancialHealthPanel gamification={gamification} isLoading={insightsLoading} />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.18 }}
         >
           <InsightsWidget insights={insights} limit={2} isLoading={insightsLoading} />
         </motion.div>

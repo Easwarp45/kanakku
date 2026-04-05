@@ -60,7 +60,7 @@ export default function Login() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-96 w-96 rounded-full bg-accent/10 blur-[120px]" />
       </div>
 
-      <div className="relative flex flex-1 flex-col items-center justify-center px-6 py-12">
+      <div className="relative flex flex-1 flex-col items-center justify-center px-4 sm:px-6 py-12">
         {/* Logo */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -72,7 +72,7 @@ export default function Login() {
             <IndianRupee className="h-8 w-8 text-primary" />
           </div>
           <div className="text-center">
-            <h1 className="font-display text-3xl font-bold text-gradient">Kanakku</h1>
+            <h1 className="font-display text-2xl sm:text-3xl font-bold text-gradient">Kanakku</h1>
             <p className="text-sm text-muted-foreground mt-1">your money, your vibe 💜</p>
           </div>
         </motion.div>
@@ -84,7 +84,7 @@ export default function Login() {
           transition={{ duration: 0.4, delay: 0.1 }}
           className="w-full max-w-sm"
         >
-          <div className="glass-card p-6 space-y-1">
+          <div className="glass-card p-4 sm:p-6 space-y-1">
             <h2 className="font-display text-xl font-bold">Welcome back</h2>
             <p className="text-sm text-muted-foreground pb-4">sign in to continue</p>
 

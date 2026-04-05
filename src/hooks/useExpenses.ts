@@ -151,9 +151,12 @@ export function useCreateExpense() {
 
 export function useUpdateExpense() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({ id, ...input }: UpdateExpenseInput) => {
+      if (!user) throw new Error('Not authenticated');
+
       const updates: Record<string, unknown> = {};
 
       if (input.amount !== undefined) updates.amount = input.amount;
@@ -167,6 +170,7 @@ export function useUpdateExpense() {
         .from('expenses')
         .update(updates)
         .eq('id', id)
+        .eq('user_id', user.id)
         .select()
         .single();
 
@@ -186,13 +190,17 @@ export function useUpdateExpense() {
 
 export function useDeleteExpense() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (id: string) => {
+      if (!user) throw new Error('Not authenticated');
+
       const { error } = await supabase
         .from('expenses')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', user.id); // ← ownership guard
 
       if (error) throw error;
     },
@@ -252,5 +260,35 @@ export function useMonthlyTotal() {
       return (data || []).reduce((sum, exp) => sum + Number(exp.amount), 0);
     },
     enabled: !!user,
+  });
+}
+
+export function useRecentUPIExpenses(limit: number = 8) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['expenses', 'recent-upi', user?.id, limit],
+    queryFn: async () => {
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('id,amount,category,description,payment_method,expense_date,created_at')
+        .eq('user_id', user.id)
+        .eq('payment_method', 'upi')
+        .order('expense_date', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+
+      return (data || []).map((expense) => ({
+        ...expense,
+        amount: Number(expense.amount),
+        category: expense.category as ExpenseCategory,
+        payment_method: expense.payment_method as PaymentMethod,
+      })) as Expense[];
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60,
   });
 }

@@ -38,7 +38,7 @@ export function useIncome(filters?: { startDate?: string; endDate?: string; sour
       })) as Income[];
     },
     enabled: !!user,
-    staleTime: 1000 * 60 * 10, // 10 minutes
+    staleTime: 1000 * 60 * 2, // align with app-wide cache freshness
   });
 }
 
@@ -46,7 +46,7 @@ export function useIncomeRecord(id: string | undefined) {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['income', id],
+    queryKey: ['income-record', id],
     queryFn: async () => {
       if (!id || !user) return null;
 
@@ -130,7 +130,7 @@ export function useUpdateIncome() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['income'] });
-      queryClient.invalidateQueries({ queryKey: ['income', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['income-record', data.id] });
       toast.success('Income updated successfully');
     },
     onError: (error) => {

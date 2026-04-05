@@ -1,138 +1,55 @@
-import { parseISO, isWeekend, eachDayOfInterval, startOfMonth, endOfMonth } from 'date-fns';
+import {
+  endOfMonth,
+  endOfWeek,
+  format,
+  isWeekend,
+  parseISO,
+  startOfWeek,
+  subDays,
+  subWeeks,
+} from 'date-fns';
 import type { ExpenseCategory } from '@/types/expense';
-import type { Insight, InsightsAnalytics, InsightGenerationInput } from '@/types/insights';
+import type {
+  Insight,
+  InsightAchievement,
+  InsightGamification,
+  InsightGenerationInput,
+  InsightsAnalytics,
+} from '@/types/insights';
 import { formatMoney, type SupportedCurrency } from '@/lib/currency';
 
-/**
- * Calculate comprehensive analytics from expenses
- */
-export function calculateAnalytics(input: InsightGenerationInput): InsightsAnalytics {
-  const expenses = input.currentExpenses;
-  const monthlyTotal = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-  const dailyAverage = input.daysInMonth > 0 ? monthlyTotal / input.daysInMonth : 0;
+const ALL_CATEGORIES: ExpenseCategory[] = [
+  'food',
+  'transport',
+  'entertainment',
+  'shopping',
+  'bills',
+  'health',
+  'education',
+  'travel',
+  'other',
+];
 
-  // Calculate category totals
-  const categoryTotals: Record<string, number> = {};
-  let topCategory: ExpenseCategory | null = null;
-  let topCategoryAmount = 0;
+const DISCRETIONARY_CATEGORIES: ExpenseCategory[] = ['food', 'shopping', 'entertainment'];
 
-  expenses.forEach(exp => {
-    if (!categoryTotals[exp.category]) {
-      categoryTotals[exp.category] = 0;
-    }
-    categoryTotals[exp.category] += exp.amount;
-    if (categoryTotals[exp.category] > topCategoryAmount) {
-      topCategoryAmount = categoryTotals[exp.category];
-      topCategory = exp.category;
-    }
-  });
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
 
-  // Calculate weekend vs weekday spending
-  let weekendSpending = 0;
-  let weekdaySpending = 0;
-
-  expenses.forEach(exp => {
-    const date = parseISO(exp.expense_date);
-    if (isWeekend(date)) {
-      weekendSpending += exp.amount;
-    } else {
-      weekdaySpending += exp.amount;
-    }
-  });
-
-  // Calculate budget status (percentage of budget used)
-  const budgetStatus = input.budget > 0 ? (monthlyTotal / input.budget) * 100 : 0;
-
-  // Calculate monthly growth
-  const monthlyGrowth = input.previousMonthTotal > 0 
-    ? ((monthlyTotal - input.previousMonthTotal) / input.previousMonthTotal) * 100 
-    : 0;
-
+function createEmptyCategoryMap(): Record<ExpenseCategory, number> {
   return {
-    monthlyTotal,
-    dailyAverage,
-    categoryTotals: categoryTotals as Record<ExpenseCategory, number>,
-    weekendSpending,
-    weekdaySpending,
-    budgetStatus,
-    previousMonthTotal: input.previousMonthTotal,
-    monthlyGrowth,
-    topCategory,
-    topCategoryAmount,
-    transactionCount: expenses.length,
-    daysInMonth: input.daysInMonth,
+    food: 0,
+    transport: 0,
+    entertainment: 0,
+    shopping: 0,
+    bills: 0,
+    health: 0,
+    education: 0,
+    travel: 0,
+    other: 0,
   };
 }
 
-/**
- * Helper: Detect categories with spike spending
- */
-function detectCategorySpikes(
-  categoryTotals: Record<ExpenseCategory, number>,
-  categoryBudgets: Record<ExpenseCategory, number>
-): ExpenseCategory[] {
-  return Object.entries(categoryTotals)
-    .filter(([category, amount]) => {
-      const budget = categoryBudgets[category as ExpenseCategory] || 0;
-      return budget > 0 && (amount / budget) >= 0.8;
-    })
-    .map(([category]) => category as ExpenseCategory);
-}
-
-/**
- * Helper: Get weekend spending insight
- */
-function getWeekendInsight(weekend: number, weekday: number): string {
-  if (weekday === 0) return 'Most spending is on weekends';
-  const ratio = weekend / weekday;
-  if (ratio > 1.5) {
-    return `You spend ${(ratio * 100 - 100).toFixed(0)}% more on weekends`;
-  }
-  if (ratio > 1) {
-    return 'Weekend spending is higher than weekdays';
-  }
-  return 'Weekday spending is higher than weekends';
-}
-
-/**
- * Helper: Get spending forecast
- */
-function getForecastInsight(dailyAvg: number, currency: SupportedCurrency): string {
-  const forecast = dailyAvg * 30;
-  return `At this rate, you'll spend ${formatMoney(forecast, currency, { maximumFractionDigits: 0 })} this month`;
-}
-
-/**
- * Helper: Detect frequent small spending
- */
-function detectFrequentSpending(
-  expenses: InsightGenerationInput['currentExpenses'],
-  category: ExpenseCategory
-): boolean {
-  const categoryExpenses = expenses.filter(e => e.category === category);
-  return categoryExpenses.length >= 8;
-}
-
-/**
- * Helper: Get positive spending message
- */
-function getPositiveInsight(usage: number): string {
-  if (usage < 30) return 'Great job! Very controlled spending this month';
-  if (usage < 50) return 'Good control! Your spending is well within budget';
-  if (usage < 60) return 'On track! You\'re maintaining good spending habits';
-  return 'You\'re being mindful of your budget';
-}
-
-/**
- * Helper: Get savings opportunity message
- */
-function getSavingsSuggestion(category: string, amount: number, currency: SupportedCurrency): string {
-  return `Reducing ${category} by 15% could save you ${formatMoney(Math.round(amount * 0.15), currency, { maximumFractionDigits: 0 })} this month`;
-}
-
-/**
- * Helper: Get category emoji/icon name
- */
 function getCategoryEmoji(category: ExpenseCategory): string {
   const emojiMap: Record<ExpenseCategory, string> = {
     food: '🍔',
@@ -148,8 +65,101 @@ function getCategoryEmoji(category: ExpenseCategory): string {
   return emojiMap[category] || '📦';
 }
 
+function formatPercentChange(previous: number, current: number): string {
+  if (previous <= 0) {
+    return current > 0 ? '+100%' : '0%';
+  }
+
+  const change = ((current - previous) / previous) * 100;
+  const signed = change > 0 ? `+${change.toFixed(0)}%` : `${change.toFixed(0)}%`;
+  return signed;
+}
+
+function buildInsightId(seed: string, dayKey: string): string {
+  return `${dayKey}-${seed}`;
+}
+
 /**
- * Generate insights based on analytics and rules
+ * Calculate comprehensive analytics from expenses
+ */
+export function calculateAnalytics(input: InsightGenerationInput): InsightsAnalytics {
+  const categoryTotals = createEmptyCategoryMap();
+  const previousCategoryTotals = createEmptyCategoryMap();
+  let topCategory: ExpenseCategory | null = null;
+  let topCategoryAmount = 0;
+
+  const monthlyTotal = input.currentExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const previousMonthTotal = input.previousExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const monthlyGrowth = previousMonthTotal > 0 ? ((monthlyTotal - previousMonthTotal) / previousMonthTotal) * 100 : 0;
+
+  const daysInMonth = endOfMonth(input.now).getDate();
+  const daysElapsedInMonth = Math.max(1, input.now.getDate());
+  const dailyAverage = monthlyTotal / daysElapsedInMonth;
+  const projectedMonthTotal = dailyAverage * daysInMonth;
+
+  for (const exp of input.currentExpenses) {
+    categoryTotals[exp.category] += exp.amount;
+
+    if (categoryTotals[exp.category] > topCategoryAmount) {
+      topCategoryAmount = categoryTotals[exp.category];
+      topCategory = exp.category;
+    }
+  }
+
+  for (const exp of input.previousExpenses) {
+    previousCategoryTotals[exp.category] += exp.amount;
+  }
+
+  let weekendSpending = 0;
+  let weekdaySpending = 0;
+  for (const exp of input.currentExpenses) {
+    if (isWeekend(parseISO(exp.expense_date))) {
+      weekendSpending += exp.amount;
+    } else {
+      weekdaySpending += exp.amount;
+    }
+  }
+
+  const budgetStatus = input.budget > 0 ? (monthlyTotal / input.budget) * 100 : 0;
+
+  const unnecessarySpendAmount = DISCRETIONARY_CATEGORIES.reduce(
+    (sum, category) => sum + categoryTotals[category],
+    0
+  );
+  const unnecessarySpendShare = monthlyTotal > 0 ? (unnecessarySpendAmount / monthlyTotal) * 100 : 0;
+
+  const activeDaysCurrentMonth = new Set(input.currentExpenses.map((item) => item.expense_date)).size;
+
+  return {
+    monthlyTotal,
+    previousMonthTotal,
+    monthlyGrowth,
+    projectedMonthTotal,
+    dailyAverage,
+    daysElapsedInMonth,
+    daysInMonth,
+
+    categoryTotals,
+    previousCategoryTotals,
+    weekendSpending,
+    weekdaySpending,
+
+    budget: input.budget,
+    budgetStatus,
+
+    unnecessarySpendAmount,
+    unnecessarySpendShare,
+
+    topCategory,
+    topCategoryAmount,
+
+    transactionCount: input.currentExpenses.length,
+    activeDaysCurrentMonth,
+  };
+}
+
+/**
+ * Generate advanced rule-based insights with explainability payload.
  */
 export function generateInsights(
   analytics: InsightsAnalytics,
@@ -157,157 +167,381 @@ export function generateInsights(
   currency: SupportedCurrency = 'INR'
 ): Insight[] {
   const insights: Insight[] = [];
-  const now = Date.now();
+  const dayKey = format(input.now, 'yyyy-MM-dd');
+  const createdAt = input.now.getTime();
 
-  // Rule 1: Budget Overspend Warning
-  if (analytics.budgetStatus > 100) {
-    const overspendAmount = analytics.monthlyTotal - input.budget;
+  if (analytics.budget > 0 && analytics.budgetStatus > 100) {
+    const overBy = analytics.monthlyTotal - analytics.budget;
     insights.push({
-      id: `budget-overspend-${now}-1`,
+      id: buildInsightId('budget-exceeded', dayKey),
       type: 'warning',
-      priority: 'high',
-      title: 'Budget Exceeded',
-      message: `You've exceeded your budget by ${formatMoney(overspendAmount, currency, { maximumFractionDigits: 0 })}`,
+      priority: 1,
       icon: '⚠️',
-      actionable: true,
-      timestamp: now,
+      title: 'Budget Exceeded',
+      message: `You crossed this month budget by ${formatMoney(overBy, currency, { maximumFractionDigits: 0 })}.`,
+      actionRoute: '/budget',
+      actionLabel: 'Fix Budget',
+      why: {
+        previous: analytics.budget,
+        current: analytics.monthlyTotal,
+        change: formatPercentChange(analytics.budget, analytics.monthlyTotal),
+        reason: 'Current month spend is higher than your configured monthly budget.',
+        valueKind: 'currency',
+      },
+      createdAt,
     });
   }
 
-  // Rule 2: High Budget Usage Alert
-  if (analytics.budgetStatus >= 80 && analytics.budgetStatus <= 100) {
-    const remaining = input.budget - analytics.monthlyTotal;
+  if (analytics.budget > 0 && analytics.budgetStatus <= 100 && analytics.projectedMonthTotal > analytics.budget * 1.05) {
+    const remaining = Math.max(0, analytics.budget - analytics.monthlyTotal);
+    const daysToExceed = analytics.dailyAverage > 0
+      ? Math.max(1, Math.ceil(remaining / analytics.dailyAverage))
+      : analytics.daysInMonth - analytics.daysElapsedInMonth;
+
     insights.push({
-      id: `budget-high-${now}-2`,
+      id: buildInsightId('budget-risk', dayKey),
       type: 'warning',
-      priority: 'medium',
-      title: 'Nearing Budget Limit',
-      message: `You've used ${analytics.budgetStatus.toFixed(0)}% of your budget. Only ${formatMoney(remaining, currency, { maximumFractionDigits: 0 })} remaining`,
-      icon: '📈',
-      actionable: true,
-      timestamp: now,
+      priority: 1,
+      icon: '🚨',
+      title: 'Budget Risk',
+      message: `At this pace, budget can be exceeded in about ${daysToExceed} days.`,
+      actionRoute: '/budget',
+      actionLabel: 'Adjust Budget',
+      why: {
+        previous: analytics.budget,
+        current: analytics.projectedMonthTotal,
+        change: formatPercentChange(analytics.budget, analytics.projectedMonthTotal),
+        reason: 'Daily spending trend projects a month-end total above your budget.',
+        valueKind: 'currency',
+      },
+      createdAt,
     });
   }
 
-  // Rule 3: Category Spike Detection
-  const spikedCategories = detectCategorySpikes(analytics.categoryTotals, input.categoryBudgets);
-  spikedCategories.slice(0, 1).forEach(category => {
-    const amount = analytics.categoryTotals[category];
+  let highestCategoryGrowth: { category: ExpenseCategory; growth: number; previous: number; current: number } | null = null;
+  for (const category of ALL_CATEGORIES) {
+    const previous = analytics.previousCategoryTotals[category];
+    const current = analytics.categoryTotals[category];
+    if (previous <= 0) {
+      continue;
+    }
+
+    const growth = ((current - previous) / previous) * 100;
+    if (growth > 30 && (!highestCategoryGrowth || growth > highestCategoryGrowth.growth)) {
+      highestCategoryGrowth = { category, growth, previous, current };
+    }
+  }
+
+  if (highestCategoryGrowth) {
     insights.push({
-      id: `category-spike-${category}-${now}-3`,
+      id: buildInsightId('category-growth', dayKey),
       type: 'warning',
-      priority: 'medium',
-      title: `High ${category} Spending`,
-      message: `${category} spending is at ${formatMoney(amount, currency, { maximumFractionDigits: 0 })}, approaching or exceeding budget`,
-      icon: getCategoryEmoji(category),
-      actionable: true,
-      relatedCategory: category,
-      timestamp: now,
+      priority: 1,
+      icon: getCategoryEmoji(highestCategoryGrowth.category),
+      title: `${highestCategoryGrowth.category} spend is surging`,
+      message: `${highestCategoryGrowth.category} spending is up ${highestCategoryGrowth.growth.toFixed(0)}% vs last month.`,
+      actionRoute: '/expenses',
+      actionLabel: 'Review Expenses',
+      relatedCategory: highestCategoryGrowth.category,
+      why: {
+        previous: highestCategoryGrowth.previous,
+        current: highestCategoryGrowth.current,
+        change: formatPercentChange(highestCategoryGrowth.previous, highestCategoryGrowth.current),
+        reason: 'This category increased more than the 30% risk threshold.',
+        valueKind: 'currency',
+      },
+      createdAt,
     });
+  }
+
+  if (analytics.weekendSpending > analytics.weekdaySpending * 1.25 && analytics.weekendSpending > 0) {
+    insights.push({
+      id: buildInsightId('weekend-pattern', dayKey),
+      type: 'suggestion',
+      priority: 2,
+      icon: '🗓️',
+      title: 'Weekend Spike Detected',
+      message: 'Weekend spending is significantly higher than weekdays.',
+      actionRoute: '/expenses',
+      actionLabel: 'Plan Weekends',
+      why: {
+        previous: analytics.weekdaySpending,
+        current: analytics.weekendSpending,
+        change: formatPercentChange(analytics.weekdaySpending, analytics.weekendSpending),
+        reason: 'Your weekend spend is above the healthy weekday balance trend.',
+        valueKind: 'currency',
+      },
+      createdAt,
+    });
+  }
+
+  if (analytics.unnecessarySpendShare >= 40) {
+    insights.push({
+      id: buildInsightId('discretionary-share', dayKey),
+      type: 'suggestion',
+      priority: 2,
+      icon: '💡',
+      title: 'High Non-Essential Spend',
+      message: `${analytics.unnecessarySpendShare.toFixed(0)}% is from food, shopping, and entertainment.`,
+      actionRoute: '/expenses',
+      actionLabel: 'Trim Non-Essentials',
+      why: {
+        previous: analytics.monthlyTotal,
+        current: analytics.unnecessarySpendAmount,
+        change: `${analytics.unnecessarySpendShare.toFixed(0)}% share`,
+        reason: 'Discretionary categories are consuming a large part of your monthly spend.',
+        valueKind: 'currency',
+      },
+      createdAt,
+    });
+  }
+
+  if (analytics.topCategory) {
+    const potentialSavings = analytics.topCategoryAmount * 0.15;
+    insights.push({
+      id: buildInsightId('top-category-savings', dayKey),
+      type: 'suggestion',
+      priority: 2,
+      icon: '🎯',
+      title: `Optimize ${analytics.topCategory} spending`,
+      message: `Reducing ${analytics.topCategory} by 15% can save ${formatMoney(potentialSavings, currency, { maximumFractionDigits: 0 })}.`,
+      actionRoute: '/expenses',
+      actionLabel: 'Set Spending Cap',
+      relatedCategory: analytics.topCategory,
+      why: {
+        previous: analytics.topCategoryAmount,
+        current: potentialSavings,
+        change: '15% optimization',
+        reason: 'Your top category is the fastest path to meaningful monthly savings.',
+        valueKind: 'currency',
+      },
+      createdAt,
+    });
+  }
+
+  insights.push({
+    id: buildInsightId('monthly-forecast', dayKey),
+    type: 'info',
+    priority: 3,
+    icon: '📊',
+    title: 'Month-end Forecast',
+    message: `Projected spend is ${formatMoney(analytics.projectedMonthTotal, currency, { maximumFractionDigits: 0 })} at current pace.`,
+    actionRoute: '/analytics',
+    actionLabel: 'View Trends',
+    why: {
+      previous: analytics.monthlyTotal,
+      current: analytics.projectedMonthTotal,
+      change: formatPercentChange(analytics.monthlyTotal, analytics.projectedMonthTotal),
+      reason: 'Projection uses current month daily average multiplied by total days in month.',
+      valueKind: 'currency',
+    },
+    createdAt,
   });
 
-  // Rule 4: Top Category Insight (Always show)
   if (analytics.topCategory) {
     insights.push({
-      id: `top-category-${analytics.topCategory}-${now}-4`,
-      type: 'insight',
-      priority: 'low',
-      title: `Your Top Spending Category`,
-      message: `${analytics.topCategory} is your highest spending category at ${formatMoney(analytics.topCategoryAmount, currency, { maximumFractionDigits: 0 })}`,
+      id: buildInsightId('top-category-info', dayKey),
+      type: 'info',
+      priority: 3,
       icon: getCategoryEmoji(analytics.topCategory),
-      actionable: false,
+      title: `Top category: ${analytics.topCategory}`,
+      message: `${formatMoney(analytics.topCategoryAmount, currency, { maximumFractionDigits: 0 })} spent in your top category this month.`,
+      actionRoute: '/expenses',
+      actionLabel: 'See Category',
       relatedCategory: analytics.topCategory,
-      timestamp: now,
+      why: {
+        previous: analytics.previousCategoryTotals[analytics.topCategory],
+        current: analytics.categoryTotals[analytics.topCategory],
+        change: formatPercentChange(
+          analytics.previousCategoryTotals[analytics.topCategory],
+          analytics.categoryTotals[analytics.topCategory]
+        ),
+        reason: 'Category totals are ranked by current month spend to highlight your biggest spend area.',
+        valueKind: 'currency',
+      },
+      createdAt,
     });
   }
 
-  // Rule 5: Weekend Pattern Insight
-  if (analytics.weekendSpending + analytics.weekdaySpending > 0) {
-    insights.push({
-      id: `weekend-pattern-${now}-5`,
-      type: 'insight',
-      priority: 'low',
-      title: 'Weekend Spending Pattern',
-      message: getWeekendInsight(analytics.weekendSpending, analytics.weekdaySpending),
-      icon: '📅',
-      actionable: false,
-      timestamp: now,
-    });
+  return insights.sort((a, b) => a.priority - b.priority).slice(0, 8);
+}
+
+function calculateTrackingStreak(input: InsightGenerationInput): number {
+  const dateSet = new Set(input.rollingExpenses.map((item) => item.expense_date));
+  let cursor = input.now;
+
+  const todayKey = format(cursor, 'yyyy-MM-dd');
+  if (!dateSet.has(todayKey) && cursor.getHours() < 20) {
+    cursor = subDays(cursor, 1);
   }
 
-  // Rule 6: Spending Forecast
-  insights.push({
-    id: `forecast-${now}-6`,
-    type: 'insight',
-    priority: 'medium',
-    title: 'Monthly Forecast',
-    message: getForecastInsight(analytics.dailyAverage, currency),
-    icon: '📊',
-    actionable: false,
-    timestamp: now,
-  });
+  let streak = 0;
+  while (dateSet.has(format(cursor, 'yyyy-MM-dd'))) {
+    streak += 1;
+    cursor = subDays(cursor, 1);
+  }
 
-  // Rule 7: Frequent Spending Detection
-  Object.keys(analytics.categoryTotals).forEach(category => {
-    if (detectFrequentSpending(input.currentExpenses, category as ExpenseCategory)) {
-      insights.push({
-        id: `frequent-${category}-${now}-7`,
-        type: 'insight',
-        priority: 'low',
-        title: `Frequent ${category} Purchases`,
-        message: `You made ${input.currentExpenses.filter(e => e.category === category).length} ${category} transactions this month`,
-        icon: getCategoryEmoji(category as ExpenseCategory),
-        actionable: false,
-        relatedCategory: category as ExpenseCategory,
-        timestamp: now,
-      });
+  return streak;
+}
+
+function calculateBudgetControlStreak(analytics: InsightsAnalytics, input: InsightGenerationInput): number {
+  if (analytics.budget <= 0) {
+    return 0;
+  }
+
+  const weeklyBudget = (analytics.budget * 12) / 52;
+  const currentWeekStart = startOfWeek(input.now, { weekStartsOn: 1 });
+  let streak = 0;
+
+  for (let i = 1; i <= 12; i += 1) {
+    const weekStart = subWeeks(currentWeekStart, i);
+    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+    const weekStartKey = format(weekStart, 'yyyy-MM-dd');
+    const weekEndKey = format(weekEnd, 'yyyy-MM-dd');
+
+    const weeklySpend = input.rollingExpenses
+      .filter((expense) => expense.expense_date >= weekStartKey && expense.expense_date <= weekEndKey)
+      .reduce((sum, expense) => sum + expense.amount, 0);
+
+    if (weeklySpend <= weeklyBudget * 1.02) {
+      streak += 1;
+    } else {
+      break;
     }
-  });
-
-  // Rule 8: Positive Feedback
-  if (analytics.budgetStatus <= 100) {
-    insights.push({
-      id: `positive-${now}-8`,
-      type: 'positive',
-      priority: 'low',
-      title: 'Good Spending Control',
-      message: getPositiveInsight(analytics.budgetStatus),
-      icon: '✨',
-      actionable: false,
-      timestamp: now,
-    });
   }
 
-  // Rule 9: Savings Opportunity
-  if (analytics.topCategory && analytics.topCategoryAmount > 0) {
-    insights.push({
-      id: `savings-${analytics.topCategory}-${now}-9`,
-      type: 'suggestion',
-      priority: 'medium',
-      title: 'Reduce Spending on ' + analytics.topCategory,
-      message: getSavingsSuggestion(analytics.topCategory, analytics.topCategoryAmount, currency),
-      icon: '💡',
-      actionable: true,
-      relatedCategory: analytics.topCategory,
-      timestamp: now,
-    });
+  return streak;
+}
+
+function buildAchievements(
+  analytics: InsightsAnalytics,
+  input: InsightGenerationInput,
+  streaks: { trackingDays: number; budgetControlWeeks: number }
+): InsightAchievement[] {
+  const last7Start = format(subDays(input.now, 6), 'yyyy-MM-dd');
+  const nowKey = format(input.now, 'yyyy-MM-dd');
+  const last7Spend = input.rollingExpenses
+    .filter((expense) => expense.expense_date >= last7Start && expense.expense_date <= nowKey)
+    .reduce((sum, expense) => sum + expense.amount, 0);
+
+  const weeklyBudget = analytics.budget > 0 ? (analytics.budget * 7) / analytics.daysInMonth : 0;
+  const noOverspendingUnlocked = weeklyBudget > 0 ? last7Spend <= weeklyBudget : false;
+  const noOverspendingProgress = weeklyBudget > 0
+    ? clamp(100 - (Math.max(0, last7Spend - weeklyBudget) / weeklyBudget) * 100, 0, 100)
+    : 0;
+
+  const budgetMasterUnlocked = analytics.budget > 0 && analytics.budgetStatus <= 90;
+  const budgetMasterProgress = analytics.budget > 0
+    ? clamp(((110 - analytics.budgetStatus) / 20) * 100, 0, 100)
+    : 0;
+
+  const trackerUnlocked = streaks.trackingDays >= 7;
+  const trackerProgress = clamp((streaks.trackingDays / 7) * 100, 0, 100);
+
+  return [
+    {
+      id: 'no-overspending-week',
+      title: 'No Overspending Week',
+      description: 'Keep weekly spend within budget guidance.',
+      icon: '🛡️',
+      unlocked: noOverspendingUnlocked,
+      progress: noOverspendingProgress,
+    },
+    {
+      id: 'budget-master',
+      title: 'Budget Master',
+      description: 'Stay at or below 90% of monthly budget.',
+      icon: '🏆',
+      unlocked: budgetMasterUnlocked,
+      progress: budgetMasterProgress,
+    },
+    {
+      id: 'consistent-tracker',
+      title: 'Consistent Tracker',
+      description: 'Log expenses for 7 days in a row.',
+      icon: '🔥',
+      unlocked: trackerUnlocked,
+      progress: trackerProgress,
+    },
+  ];
+}
+
+/**
+ * Gamification module: financial health, streaks, and achievements.
+ */
+export function calculateGamification(
+  analytics: InsightsAnalytics,
+  input: InsightGenerationInput
+): InsightGamification {
+  let score = 70;
+  const reasons: string[] = [];
+
+  if (analytics.budget > 0) {
+    if (analytics.budgetStatus <= 85) {
+      score += 15;
+      reasons.push('Excellent budget control this month.');
+    } else if (analytics.budgetStatus <= 100) {
+      score += 8;
+      reasons.push('You are within budget limits.');
+    } else {
+      const penalty = Math.min(30, (analytics.budgetStatus - 100) * 0.8);
+      score -= penalty;
+      reasons.push('Overspending is reducing your financial health score.');
+    }
   }
 
-  // Rule 10: Growth Alert
-  if (analytics.monthlyGrowth > 15) {
-    insights.push({
-      id: `growth-alert-${now}-10`,
-      type: 'warning',
-      priority: 'high',
-      title: 'Spending Growth Alert',
-      message: `Your spending increased by ${analytics.monthlyGrowth.toFixed(0)}% compared to last month`,
-      icon: '📈',
-      actionable: true,
-      timestamp: now,
-    });
+  const trackingConsistency = analytics.daysElapsedInMonth > 0
+    ? analytics.activeDaysCurrentMonth / analytics.daysElapsedInMonth
+    : 0;
+
+  if (trackingConsistency >= 0.85) {
+    score += 15;
+    reasons.push('Strong daily tracking consistency improved your score.');
+  } else if (trackingConsistency >= 0.6) {
+    score += 8;
+    reasons.push('Tracking habit is decent but can be stronger.');
+  } else {
+    score -= 8;
+    reasons.push('Inconsistent logging lowered your tracking reliability score.');
   }
 
-  // Sort by priority: high > medium > low
-  const priorityOrder = { high: 0, medium: 1, low: 2 };
-  return insights.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+  if (analytics.unnecessarySpendShare > 45) {
+    score -= 12;
+    reasons.push('High discretionary spending is dragging score down.');
+  } else if (analytics.unnecessarySpendShare > 35) {
+    score -= 7;
+    reasons.push('Moderate discretionary spend is impacting score.');
+  }
+
+  if (analytics.monthlyGrowth > 25) {
+    score -= 8;
+    reasons.push('Rapid month-over-month spend increase impacted score.');
+  } else if (analytics.monthlyGrowth < 0) {
+    score += 5;
+    reasons.push('Lower spend vs last month improved score.');
+  }
+
+  const normalizedScore = Math.round(clamp(score, 0, 100));
+  const label = normalizedScore >= 80
+    ? 'Excellent'
+    : normalizedScore >= 60
+      ? 'Good'
+      : 'Needs Improvement';
+
+  const streaks = {
+    trackingDays: calculateTrackingStreak(input),
+    budgetControlWeeks: calculateBudgetControlStreak(analytics, input),
+  };
+
+  const achievements = buildAchievements(analytics, input, streaks);
+
+  return {
+    health: {
+      score: normalizedScore,
+      label,
+      reasons: reasons.slice(0, 3),
+    },
+    streaks,
+    achievements,
+  };
 }
