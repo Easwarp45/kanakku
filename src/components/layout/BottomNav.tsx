@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Receipt, Users, BarChart3, User, Wallet } from 'lucide-react';
+import { Home, Receipt, Users, BarChart3, User, Wallet, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
@@ -8,7 +8,7 @@ const navItems = [
   { to: '/expenses',  icon: Receipt,  label: 'Expenses' },
   { to: '/income',    icon: Wallet,   label: 'Income'   },
   { to: '/groups',    icon: Users,    label: 'Groups'   },
-  { to: '/analytics', icon: BarChart3,label: 'Stats'    },
+  { to: '/intelligence', icon: Brain, label: 'Intel'    },
   { to: '/profile',   icon: User,     label: 'Me'       },
 ];
 

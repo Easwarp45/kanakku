@@ -34,6 +34,7 @@ import AddIncome from "./pages/AddIncome";
 import Income from "./pages/Income";
 import IncomeDetail from "./pages/IncomeDetail";
 import MonthlyWrap from "./pages/MonthlyWrap";
+import FinancialIntelligence from "./pages/FinancialIntelligence";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -191,6 +192,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <InsightsHistory />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/intelligence"
+              element={
+                <ProtectedRoute>
+                  <FinancialIntelligence />
                 </ProtectedRoute>
               }
             />
