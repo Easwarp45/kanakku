@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { useRecentExpenses, useTodayTotal, useMonthlyTotal } from '@/hooks/useExpenses';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
-import { useSmartInsights } from '@/hooks/useSmartInsights';
+import { useSmartInsights } from '../hooks/useSmartInsights';
 import { useCurrency } from '@/hooks/useCurrency';
 import BottomNav from '@/components/layout/BottomNav';
 import { CountUpNumber } from '@/components/ui/count-up-number';

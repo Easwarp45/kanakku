@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, TrendingDown, Download, Calendar, Wallet, Receipt, Target, History } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Download, Calendar, Wallet, Receipt, Target, History, Clock3, MapPin, Repeat, Flag, HandCoins } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { PageTransition, staggerContainerVariants, staggerItemVariants, slideUpV
 import { SkeletonCardLoader } from '@/components/ui/skeleton-loader';
 import BottomNav from '@/components/layout/BottomNav';
 import { useAnalytics, TimePeriod } from '@/hooks/useAnalytics';
-import { useSmartInsights } from '@/hooks/useSmartInsights';
+import { useSmartInsights } from '../hooks/useSmartInsights';
 import { useCurrency } from '@/hooks/useCurrency';
 import { InsightsList } from '@/components/insights';
 import { 
@@ -38,9 +38,9 @@ const TOOLTIP_BORDER = 'hsl(var(--border))';
 export default function Analytics() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<TimePeriod>('month');
-  const { formatCurrency, formatCompactCurrency } = useCurrency();
+  const { formatCurrency, formatCompactCurrency, formatLocalCurrency, formatLocalNumber } = useCurrency();
   const { data: analytics, isLoading } = useAnalytics(period);
-  const { insights, isLoading: insightsLoading } = useSmartInsights();
+  const { insights, subscriptions, locations, timeAnalysis, settlements, goals, isLoading: insightsLoading } = useSmartInsights();
 
   const formatGridAmount = (value: number) => {
     const full = formatCurrency(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -94,6 +94,10 @@ export default function Analytics() {
     }
     return null;
   };
+
+  const topSubscription = subscriptions[0];
+  const topLocation = locations.topLocations[0];
+  const dominantTimeBucket = timeAnalysis.buckets.find((item) => item.block === timeAnalysis.dominantPattern);
 
   return (
     <PageTransition>
@@ -490,6 +494,100 @@ export default function Analytics() {
       </div>
 
       {/* Smart Insights Section */}
+      <div className="p-4 space-y-4">
+        <div className="flex items-center justify-between px-4">
+          <h2 className="text-lg font-semibold">Financial Intelligence</h2>
+        </div>
+
+        <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Repeat className="h-4 w-4" />
+                Subscription Detector
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              <p className="text-xl font-semibold">{subscriptions.length}</p>
+              <p className="text-xs text-muted-foreground">recurring patterns identified</p>
+              <p className="text-xs text-foreground/90">
+                {topSubscription
+                  ? `Top: ${topSubscription.merchant} (${topSubscription.status})`
+                  : 'No recurring pattern yet. Keep tracking to detect subscriptions.'}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                Location Spend Map
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              <p className="text-xl font-semibold">{locations.topLocations.length}</p>
+              <p className="text-xs text-muted-foreground">spending clusters</p>
+              <p className="text-xs text-foreground/90">
+                {topLocation
+                  ? `Top cluster: ${topLocation.key} (${formatLocalCurrency(topLocation.totalSpent, { maximumFractionDigits: 0 })})`
+                  : 'Location data not available yet. Enable geo-tagged inputs to unlock heatmaps.'}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Clock3 className="h-4 w-4" />
+                Time Behavior
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              <p className="text-xl font-semibold capitalize">{timeAnalysis.dominantPattern}</p>
+              <p className="text-xs text-muted-foreground">dominant spending block</p>
+              <p className="text-xs text-foreground/90">
+                {dominantTimeBucket
+                  ? `${formatLocalNumber(dominantTimeBucket.transactionCount)} transactions in this block`
+                  : 'Time behavior will appear once expenses are logged.'}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Flag className="h-4 w-4" />
+                Goal Engine
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              <p className="text-xl font-semibold">{formatLocalCurrency(goals.dailySavingRequired, { maximumFractionDigits: 0 })}</p>
+              <p className="text-xs text-muted-foreground">daily saving recommendation</p>
+              <p className="text-xs text-foreground/90">{goals.message}</p>
+            </CardContent>
+          </Card>
+
+          <Card className="min-[420px]:col-span-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <HandCoins className="h-4 w-4" />
+                Group Debt Simplifier
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              <p className="text-xl font-semibold">{settlements.length}</p>
+              <p className="text-xs text-muted-foreground">optimized settlement transactions</p>
+              <p className="text-xs text-foreground/90">
+                {settlements.length > 0
+                  ? 'Debt settlement path is optimized using creditor/debtor greedy matching.'
+                  : 'No pending cross-member debt path right now.'}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
       <div className="p-4 space-y-4">
         <div className="flex items-center justify-between px-4">
           <h2 className="text-lg font-semibold">Financial Insights</h2>

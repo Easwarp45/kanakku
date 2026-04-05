@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { InsightCard, InsightWhyDrawer } from '@/components/insights';
-import { useSmartInsights } from '@/hooks/useSmartInsights';
+import { useSmartInsights } from '../hooks/useSmartInsights';
+import { filterInsightHistory, groupInsightHistoryByDate } from '@/lib/insightHistory';
 import type { Insight, InsightFilterType, InsightHistoryEntry } from '@/types/insights';
 import BottomNav from '@/components/layout/BottomNav';
 
@@ -32,21 +33,11 @@ export default function InsightsHistory() {
   const historyItems = history.length > 0 ? history : fallbackHistory;
 
   const filtered = useMemo(() => {
-    const source = historyItems;
-    if (selectedFilter === 'all') {
-      return source;
-    }
-    return source.filter((item) => item.type === selectedFilter);
+    return filterInsightHistory(historyItems, selectedFilter);
   }, [historyItems, selectedFilter]);
 
   const groupedByDate = useMemo(() => {
-    return filtered.reduce((acc, item) => {
-      if (!acc[item.recordedDate]) {
-        acc[item.recordedDate] = [];
-      }
-      acc[item.recordedDate].push(item);
-      return acc;
-    }, {} as Record<string, InsightHistoryEntry[]>);
+    return groupInsightHistoryByDate(filtered);
   }, [filtered]);
 
   const sortedDates = useMemo(

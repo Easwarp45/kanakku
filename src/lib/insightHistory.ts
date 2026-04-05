@@ -64,3 +64,27 @@ export function appendInsightHistory(userId: string, insights: Insight[], now: D
   localStorage.setItem(buildHistoryKey(userId), JSON.stringify(trimmed));
   return trimmed;
 }
+
+export function filterInsightHistory(
+  entries: InsightHistoryEntry[],
+  filterType: Insight['type'] | 'all'
+): InsightHistoryEntry[] {
+  if (filterType === 'all') {
+    return [...entries];
+  }
+
+  return entries.filter((entry) => entry.type === filterType);
+}
+
+export function groupInsightHistoryByDate(
+  entries: InsightHistoryEntry[]
+): Record<string, InsightHistoryEntry[]> {
+  return entries.reduce((acc, item) => {
+    if (!acc[item.recordedDate]) {
+      acc[item.recordedDate] = [];
+    }
+
+    acc[item.recordedDate].push(item);
+    return acc;
+  }, {} as Record<string, InsightHistoryEntry[]>);
+}
