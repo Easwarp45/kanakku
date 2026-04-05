@@ -64,12 +64,32 @@ export default function Login() {
       <div className="relative flex flex-1 flex-col items-center justify-center px-4 sm:px-6 py-12">
         {/* Logo */}
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="mb-10 flex flex-col items-center gap-3"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
+          className="mb-10 flex flex-col items-center gap-4"
         >
-          <KanakkuLogo size={72} showName tagline vertical />
+          {/* glow ring + logo */}
+          <div className="relative flex items-center justify-center">
+            {/* outer pulse ring */}
+            <div className="absolute h-28 w-28 rounded-full"
+              style={{ background: 'radial-gradient(circle,rgba(0,207,255,0.18) 0%,rgba(0,232,122,0.1) 50%,transparent 75%)', filter: 'blur(8px)' }}
+            />
+            {/* middle ring */}
+            <div className="absolute h-[88px] w-[88px] rounded-full border border-white/10"
+              style={{ boxShadow: '0 0 20px rgba(0,207,255,0.2)' }}
+            />
+            {/* logo itself */}
+            <KanakkuLogo size={68} />
+          </div>
+          <div className="text-center">
+            <h1 className="font-display text-3xl font-bold"
+              style={{ background: 'linear-gradient(135deg,#00CFFF 0%,#00E87A 50%,#CCFF00 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}
+            >
+              Kanakku
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">your money, your vibe 💜</p>
+          </div>
         </motion.div>
 
         {/* Card */}

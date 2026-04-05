@@ -10,6 +10,8 @@ import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 import { NotificationManager } from "@/components/notifications/NotificationManager";
 import { Onboarding } from "@/components/onboarding/Onboarding";
 import { RealtimeSync } from "@/components/realtime/RealtimeSync";
+import { SplashScreen } from "@/components/ui/SplashScreen";
+import { useState } from "react";
 
 // Pages
 import Login from "./pages/Login";
@@ -55,18 +57,21 @@ const queryClient = new QueryClient({
   },
 });
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-    <AuthProvider>
-      <TooltipProvider>
-        <OfflineIndicator />
-        <NotificationManager />
-        <Onboarding />
-        <RealtimeSync />
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+function App() {
+  const [splashDone, setSplashDone] = useState(false);
+  return (
+    <QueryClientProvider client={queryClient}>
+      {!splashDone && <SplashScreen duration={1800} onDone={() => setSplashDone(true)} />}
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+      <AuthProvider>
+        <TooltipProvider>
+          <OfflineIndicator />
+          <NotificationManager />
+          <Onboarding />
+          <RealtimeSync />
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
@@ -239,6 +244,7 @@ const App = () => (
     </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>
-);
+  );
+}
 
 export default App;

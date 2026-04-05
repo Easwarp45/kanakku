@@ -1,8 +1,9 @@
-import { Download, Smartphone, Check, Wifi, Zap, Shield, Share, MoreVertical, Plus } from 'lucide-react';
+import { Download, Check, Wifi, Zap, Shield, Share, MoreVertical } from 'lucide-react';
 import { usePWA } from '@/hooks/usePWA';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
+import { KanakkuLogo } from '@/components/ui/KanakkuLogo';
 
 export default function Install() {
   const { isInstallable, isInstalled, promptInstall } = usePWA();
@@ -29,10 +30,15 @@ export default function Install() {
       <div className="max-w-md mx-auto pt-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="bg-primary/10 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Smartphone className="h-10 w-10 text-primary" />
+          <div className="flex justify-center mb-4">
+            <div className="relative">
+              <div className="absolute inset-0 -m-4 rounded-full"
+                style={{ background: 'radial-gradient(circle,rgba(0,207,255,0.2) 0%,transparent 70%)', filter: 'blur(12px)' }}
+              />
+              <KanakkuLogo size={88} />
+            </div>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Install Kanakku</h1>
+          <h1 className="text-2xl font-bold text-foreground mt-2">Install Kanakku</h1>
           <p className="text-muted-foreground mt-2">
             Get the full app experience on your device
           </p>
