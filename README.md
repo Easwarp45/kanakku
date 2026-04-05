@@ -290,5 +290,5 @@ MIT — free to use, modify, and distribute.
 ---
 
 <div align="center">
-  Built with ❤️ for Indian users · <strong>Kanakku</strong> · Track smarter, spend better.
+  Built for Indian users · <strong>Kanakku</strong> · Track smarter, spend better.
 </div>
