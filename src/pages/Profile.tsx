@@ -16,6 +16,7 @@ import {
   Save, Loader2, Shield, Info
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { KanakkuLogo } from '@/components/ui/KanakkuLogo';
 
 const CURRENCIES = [
   { value: 'INR', label: '₹ Indian Rupee (INR)' },
@@ -245,12 +246,9 @@ export default function Profile() {
             </Card>
 
             {/* App Info */}
-            <div className="text-center text-xs text-muted-foreground space-y-1 pt-4">
-              <div className="flex items-center justify-center gap-1">
-                <Info className="h-3 w-3" />
-                <span>Kanakku v1.0.0</span>
-              </div>
-              <p>Expense Tracker for Indian Users</p>
+            <div className="flex flex-col items-center gap-2 pt-4 pb-2">
+              <KanakkuLogo size={56} showName vertical />
+              <p className="text-xs text-muted-foreground">v1.0.0 · Expense Tracker for India</p>
             </div>
           </>
         )}

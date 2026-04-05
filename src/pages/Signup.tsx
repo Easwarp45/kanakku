@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Eye, EyeOff, IndianRupee, Sparkles } from "lucide-react";
+import { Loader2, Eye, EyeOff, Sparkles } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/form";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import { KanakkuLogo } from "@/components/ui/KanakkuLogo";
 
 const signupSchema = z
   .object({
@@ -82,16 +83,11 @@ export default function Signup() {
           transition={{ duration: 0.4 }}
           className="mb-8 flex flex-col items-center gap-3"
         >
-          <div className="h-16 w-16 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center animate-pulse-glow">
-            <IndianRupee className="h-8 w-8 text-primary" />
-          </div>
-          <div className="text-center">
-            <h1 className="font-display text-2xl sm:text-3xl font-bold text-gradient">Kanakku</h1>
-            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1 justify-center">
-              <Sparkles className="h-3.5 w-3.5 text-accent" />
-              join the money gang
-            </p>
-          </div>
+          <KanakkuLogo size={68} showName vertical />
+          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1 justify-center">
+            <Sparkles className="h-3.5 w-3.5 text-accent" />
+            join the money gang
+          </p>
         </motion.div>
 
         {/* Card */}

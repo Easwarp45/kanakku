@@ -13,6 +13,7 @@ import {
   LogOut, Plus, Users, TrendingUp,
   Smartphone, Target, Bell, Zap, ArrowUpRight, Sparkles, History
 } from 'lucide-react';
+import { KanakkuIcon } from '@/components/ui/KanakkuLogo';
 import { FinancialHealthPanel, InsightsWidget } from '@/components/insights';
 import { useNotifications } from '@/hooks/useNotifications';
 import { CATEGORY_CONFIG } from '@/types/expense';
@@ -99,9 +100,7 @@ export default function Dashboard() {
       <header className="sticky top-0 z-50 px-4 pt-4 pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/20 border border-primary/30">
-              <span className="text-sm font-bold text-gradient font-display">{symbol}</span>
-            </div>
+            <KanakkuIcon size={36} />
             <span className="font-display text-base font-bold tracking-tight">Kanakku</span>
           </div>
           <div className="flex items-center gap-1">
