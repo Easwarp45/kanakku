@@ -1,5 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Receipt, Users, BarChart3, User, Wallet, Brain } from 'lucide-react';
+import { Home, Receipt, Users, User, Wallet, Brain } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
@@ -15,6 +17,15 @@ const navItems = [
 export default function BottomNav() {
   const location = useLocation();
 
+  const handleNavTap = async (isActive: boolean) => {
+    if (isActive || !Capacitor.isNativePlatform()) return;
+    try {
+      await Haptics.impact({ style: ImpactStyle.Light });
+    } catch {
+      // Ignore haptics failures silently.
+    }
+  };
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pb-4 safe-bottom px-2 sm:px-4">
       <div className="nav-pill flex items-center gap-0.5 px-1.5 sm:px-3 py-2 w-full max-w-sm">
@@ -24,6 +35,9 @@ export default function BottomNav() {
             <NavLink
               key={to}
               to={to}
+              onClick={() => {
+                void handleNavTap(isActive);
+              }}
               className="relative flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-full transition-colors"
             >
               {isActive && (

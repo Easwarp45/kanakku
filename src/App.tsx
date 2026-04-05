@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
+import { Capacitor } from "@capacitor/core";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
@@ -11,6 +12,7 @@ import { NotificationManager } from "@/components/notifications/NotificationMana
 import { Onboarding } from "@/components/onboarding/Onboarding";
 import { RealtimeSync } from "@/components/realtime/RealtimeSync";
 import { SplashScreen } from "@/components/ui/SplashScreen";
+import { NativeAppBridge } from "@/components/native/NativeAppBridge";
 import { useState } from "react";
 
 // Pages
@@ -59,9 +61,11 @@ const queryClient = new QueryClient({
 
 function App() {
   const [splashDone, setSplashDone] = useState(false);
+  const isNative = Capacitor.isNativePlatform();
+
   return (
     <QueryClientProvider client={queryClient}>
-      {!splashDone && <SplashScreen duration={1800} onDone={() => setSplashDone(true)} />}
+      {!isNative && !splashDone && <SplashScreen duration={1800} onDone={() => setSplashDone(true)} />}
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
       <AuthProvider>
         <TooltipProvider>
@@ -72,6 +76,7 @@ function App() {
           <Toaster />
           <Sonner />
           <BrowserRouter>
+          <NativeAppBridge />
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
