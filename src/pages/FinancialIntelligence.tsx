@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -13,6 +13,7 @@ import {
   Users, SplitSquareHorizontal, Send, Info,
 } from 'lucide-react';
 import { useFinancialIntelligence } from '@/hooks/useFinancialIntelligence';
+import { useFinancialGoals, useUpsertFinancialGoals } from '@/hooks/useFinancialGoals';
 import { useExpenses } from '@/hooks/useExpenses';
 import { useGroups, useGroupBalances, useGroupMembers, useRecordSettlement } from '@/hooks/useGroups';
 import { useAuth } from '@/hooks/useAuth';
@@ -58,6 +59,16 @@ const TIME_CFG: Record<TimeBlock, { label: string; sub: string; color: string }>
 };
 const BLOCKS: TimeBlock[] = ['morning', 'afternoon', 'evening', 'night'];
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function getDefaultGoalState() {
+  const d = new Date();
+  d.setMonth(d.getMonth() + 3);
+  return {
+    target: 100000,
+    saved: 20000,
+    deadline: d.toISOString().split('T')[0],
+  };
+}
 
 /* ─────────────────── PURE HELPERS ─────────────────── */
 function getTimeBlock(hour: number): TimeBlock {
@@ -295,6 +306,7 @@ export default function FinancialIntelligence() {
   const { user }          = useAuth();
   const { formatCurrency, convertFromBase } = useCurrency();
   const fmt = (n: number) => formatCurrency(convertFromBase(n));
+  const defaultGoalState = useMemo(() => getDefaultGoalState(), []);
 
   /* ── state ── */
   const [activeSection, setActiveSection] = useState<SectionId>('subscriptions');
@@ -302,12 +314,70 @@ export default function FinancialIntelligence() {
   const [expandedSub,   setExpandedSub]   = useState<string | null>(null);
 
   /* goal editor */
-  const [goalTarget,   setGoalTarget]   = useState(100000);
-  const [goalSaved,    setGoalSaved]    = useState(20000);
-  const [goalDeadline, setGoalDeadline] = useState(() => {
-    const d = new Date(); d.setMonth(d.getMonth() + 3);
-    return d.toISOString().split('T')[0];
-  });
+  const [goalTarget,   setGoalTarget]   = useState(defaultGoalState.target);
+  const [goalSaved,    setGoalSaved]    = useState(defaultGoalState.saved);
+  const [goalDeadline, setGoalDeadline] = useState(defaultGoalState.deadline);
+  const [goalSaveError, setGoalSaveError] = useState<string | null>(null);
+  const hasHydratedGoalsRef = useRef(false);
+  const lastPersistedGoalRef = useRef('');
+
+  const { data: savedGoal, isLoading: goalsLoading } = useFinancialGoals();
+  const upsertGoal = useUpsertFinancialGoals();
+
+  useEffect(() => {
+    if (goalsLoading || hasHydratedGoalsRef.current) {
+      return;
+    }
+
+    if (savedGoal) {
+      const nextTarget = Number(savedGoal.target_amount) || defaultGoalState.target;
+      const nextSaved = Number(savedGoal.current_saved) || 0;
+      const nextDeadline = savedGoal.deadline || defaultGoalState.deadline;
+
+      setGoalTarget(nextTarget);
+      setGoalSaved(nextSaved);
+      setGoalDeadline(nextDeadline);
+      lastPersistedGoalRef.current = `${nextTarget}|${nextSaved}|${nextDeadline}`;
+    } else {
+      lastPersistedGoalRef.current = `${defaultGoalState.target}|${defaultGoalState.saved}|${defaultGoalState.deadline}`;
+    }
+
+    hasHydratedGoalsRef.current = true;
+  }, [goalsLoading, savedGoal, defaultGoalState]);
+
+  useEffect(() => {
+    if (!user?.id || !hasHydratedGoalsRef.current || !goalDeadline) {
+      return;
+    }
+
+    const sanitizedTarget = Math.max(1, Number.isFinite(goalTarget) ? goalTarget : 1);
+    const sanitizedSaved = Math.max(0, Number.isFinite(goalSaved) ? goalSaved : 0);
+    const goalFingerprint = `${sanitizedTarget}|${sanitizedSaved}|${goalDeadline}`;
+
+    if (goalFingerprint === lastPersistedGoalRef.current) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setGoalSaveError(null);
+
+      void upsertGoal
+        .mutateAsync({
+          targetAmount: sanitizedTarget,
+          currentSaved: sanitizedSaved,
+          deadline: goalDeadline,
+        })
+        .then(() => {
+          lastPersistedGoalRef.current = goalFingerprint;
+        })
+        .catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : 'Failed to save goals';
+          setGoalSaveError(message);
+        });
+    }, 700);
+
+    return () => window.clearTimeout(timeout);
+  }, [goalTarget, goalSaved, goalDeadline, user?.id, upsertGoal]);
 
   /* ── data hooks ── */
   const { subscriptions, goals, gamification, isLoading: fiLoading } = useFinancialIntelligence({
@@ -318,7 +388,7 @@ export default function FinancialIntelligence() {
   const { data: rawExpenses = [], isLoading: expLoading } = useExpenses();
   const { data: groups = [],      isLoading: grpLoading } = useGroups();
 
-  const isLoading = fiLoading || expLoading || grpLoading;
+  const isLoading = fiLoading || expLoading || grpLoading || goalsLoading;
 
   /* ── computed: calendar heatmap ── */
   const calHeat = useMemo(() => buildCalendarHeatmap(rawExpenses, 14), [rawExpenses]);
@@ -779,14 +849,32 @@ export default function FinancialIntelligence() {
 
           {/* editable goal inputs */}
           <div className="bento-card mb-3">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Configure Goal</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Configure Goal</p>
+              <p
+                className={cn(
+                  'text-[10px]',
+                  goalSaveError
+                    ? 'text-red-400'
+                    : upsertGoal.isPending || goalsLoading
+                    ? 'text-amber-400'
+                    : 'text-emerald-400'
+                )}
+              >
+                {goalSaveError
+                  ? 'Save failed'
+                  : upsertGoal.isPending || goalsLoading
+                  ? 'Saving...'
+                  : 'Auto-saved'}
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
                 <label className="text-[10px] text-muted-foreground mb-1 block">Target (₹)</label>
                 <input
                   type="number"
                   value={goalTarget}
-                  onChange={e => setGoalTarget(Number(e.target.value))}
+                  onChange={e => setGoalTarget(Math.max(1, Number(e.target.value) || 1))}
                   className="w-full h-9 px-3 rounded-xl bg-white/5 border border-white/10 text-sm focus:border-primary/50 focus:outline-none font-display font-bold"
                   min={1}
                 />
@@ -796,7 +884,7 @@ export default function FinancialIntelligence() {
                 <input
                   type="number"
                   value={goalSaved}
-                  onChange={e => setGoalSaved(Number(e.target.value))}
+                  onChange={e => setGoalSaved(Math.max(0, Number(e.target.value) || 0))}
                   className="w-full h-9 px-3 rounded-xl bg-white/5 border border-white/10 text-sm focus:border-primary/50 focus:outline-none font-display font-bold"
                   min={0}
                 />

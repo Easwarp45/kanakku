@@ -4,7 +4,6 @@ import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
-import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
 
 const ROOT_PATHS = new Set([
   '/dashboard',
@@ -36,7 +35,6 @@ export function NativeAppBridge() {
     void StatusBar.setStyle({ style: Style.Dark });
     void StatusBar.setBackgroundColor({ color: '#0b0b11' });
     void StatusBar.setOverlaysWebView({ overlay: false });
-    void Keyboard.setResizeMode({ mode: KeyboardResize.Native });
     void SplashScreen.hide({ fadeOutDuration: 280 });
 
     let backHandle: PluginListenerHandle | null = null;

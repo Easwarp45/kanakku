@@ -118,6 +118,14 @@
     overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
+    background-attachment: scroll;
+  }
+
+  html,
+  body.native-app,
+  body.native-app #root {
+    height: 100%;
+    min-height: 100%;
   }
 
   body.native-app input,

@@ -69,7 +69,7 @@ function App() {
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
       <AuthProvider>
         <TooltipProvider>
-          <OfflineIndicator />
+          {!isNative && <OfflineIndicator />}
           <NotificationManager />
           <Onboarding />
           <RealtimeSync />
