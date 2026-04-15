@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { logger } from '@/lib/logger';
 import type { 
   Group, 
   GroupMember, 
@@ -118,7 +119,7 @@ export function useMemberRemovalListener(
   useEffect(() => {
     if (!groupId || !user) return;
 
-    console.log(`🔌 Setting up member removal listener for group ${groupId}`);
+    logger.log(`🔌 Setting up member removal listener for group ${groupId}`);
 
     const ch = supabase.channel(`removal-notifications-${groupId}-${user.id}`)
       .on(
@@ -130,11 +131,11 @@ export function useMemberRemovalListener(
           filter: `removed_user_id=eq.${user.id}`,
         },
         (payload: any) => {
-          console.log('🚫 Member removal notification received:', payload);
+          logger.log('🚫 Member removal notification received:', payload);
 
           // Only act if the notification is for this group
           if (payload.new.group_id === groupId) {
-            console.log(`⚠️ User ${user.id} was removed from group ${groupId}`);
+            logger.log(`⚠️ User ${user.id} was removed from group ${groupId}`);
 
             // Clear all group-related caches
             queryClient.invalidateQueries({ queryKey: ['groups'] });
@@ -154,7 +155,7 @@ export function useMemberRemovalListener(
     ch.subscribe();
 
     return () => {
-      console.log(`🔌 Cleaning up member removal listener for group ${groupId}`);
+      logger.log(`🔌 Cleaning up member removal listener for group ${groupId}`);
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
@@ -309,7 +310,7 @@ export function useGroupMembers(groupId: string | undefined) {
           .in('user_id', userIds);
 
         if (profilesError) {
-          console.error('Error fetching profiles, some members may show without full display name:', profilesError);
+          logger.error('Error fetching profiles, some members may show without full display name:', profilesError);
         }
 
         // Map profiles by user_id
@@ -329,7 +330,7 @@ export function useGroupMembers(groupId: string | undefined) {
 
         return result;
       } catch (error) {
-        console.error('Error in useGroupMembers:', error);
+        logger.error('Error in useGroupMembers:', error);
         throw error;
       }
     },
@@ -354,16 +355,16 @@ export function useGroupMembers(groupId: string | undefined) {
           filter: `group_id=eq.${groupId}`,
         },
         async (payload: any) => {
-          console.log('📢 Real-time member change detected:', payload);
+          logger.log('📢 Real-time member change detected:', payload);
 
           if (payload.eventType === 'DELETE') {
             // old_record.user_id may be null due to Supabase RLS on DELETE — handled below
             const removedUserId = payload.old_record?.user_id;
-            console.log(`Member deleted: ${removedUserId ?? '(hidden by RLS)'}, Current user: ${user?.id}`);
+            logger.log(`Member deleted: ${removedUserId ?? '(hidden by RLS)'}, Current user: ${user?.id}`);
 
             if (removedUserId && removedUserId === user?.id) {
               // We know for sure the current user was removed
-              console.log('⚠️ Current user was removed from group (from payload)');
+              logger.log('⚠️ Current user was removed from group (from payload)');
               queryClient.invalidateQueries({ queryKey: ['groups'] });
               queryClient.invalidateQueries({ queryKey: ['group', groupId] });
               queryClient.removeQueries({ queryKey: ['group-members', groupId] });
@@ -374,10 +375,10 @@ export function useGroupMembers(groupId: string | undefined) {
               queryClient.invalidateQueries({ queryKey: ['group-members', groupId], exact: true });
             }
           } else if (payload.eventType === 'INSERT') {
-            console.log('New member added');
+            logger.log('New member added');
             queryClient.invalidateQueries({ queryKey: ['group-members', groupId], exact: true });
           } else if (payload.eventType === 'UPDATE') {
-            console.log('Member details updated');
+            logger.log('Member details updated');
             queryClient.invalidateQueries({ queryKey: ['group-members', groupId], exact: true });
           }
 
@@ -395,7 +396,7 @@ export function useGroupMembers(groupId: string | undefined) {
 
               if (!selfMembership) {
                 // Current user is no longer a member — clear all group-related caches
-                console.log('⚠️ Current user is no longer a member (confirmed by DB check)');
+                logger.log('⚠️ Current user is no longer a member (confirmed by DB check)');
                 queryClient.invalidateQueries({ queryKey: ['groups'] });
                 queryClient.invalidateQueries({ queryKey: ['group', groupId] });
                 queryClient.removeQueries({ queryKey: ['group-members', groupId] });
@@ -403,7 +404,7 @@ export function useGroupMembers(groupId: string | undefined) {
                 return;
               }
             } catch (err) {
-              console.error('Error during membership re-check:', err);
+              logger.error('Error during membership re-check:', err);
             }
           }
 
@@ -415,9 +416,9 @@ export function useGroupMembers(groupId: string | undefined) {
         }
       )
       .subscribe((status) => {
-        console.log(`📡 Subscription status for group ${groupId}:`, status);
+        logger.log(`📡 Subscription status for group ${groupId}:`, status);
         if (status === 'SUBSCRIBED') {
-          console.log(`✅ Real-time listener active for group ${groupId}`);
+          logger.log(`✅ Real-time listener active for group ${groupId}`);
         }
       });
 
@@ -427,7 +428,7 @@ export function useGroupMembers(groupId: string | undefined) {
     return () => {
       if (subscriptionRef.current) {
         supabase.removeChannel(subscriptionRef.current);
-        console.log(`❌ Unsubscribed from group ${groupId}`);
+        logger.log(`❌ Unsubscribed from group ${groupId}`);
       }
     };
   }, [groupId, user?.id, queryClient]);
@@ -554,72 +555,74 @@ export function useSettlements(groupId: string | undefined) {
   });
 }
 
-// Calculate member balances
+// P-6: useMemo wraps the balance calculation to prevent O(n²) loops on every re-render
 export function useGroupBalances(groupId: string | undefined) {
   const { data: members = [] } = useGroupMembers(groupId);
   const { data: expenses = [] } = useGroupExpenses(groupId);
   const { data: splits = [] } = useExpenseSplits(groupId);
   const { data: settlements = [] } = useSettlements(groupId);
 
-  const balances: MemberBalance[] = members.map(member => {
-    let balance = 0;
+  return useMemo(() => {
+    const balances: MemberBalance[] = members.map(member => {
+      let balance = 0;
 
-    // Add amounts they paid
-    expenses.forEach(exp => {
-      if (exp.paid_by === member.user_id) {
-        balance += exp.amount;
-      }
+      // Add amounts they paid
+      expenses.forEach(exp => {
+        if (exp.paid_by === member.user_id) {
+          balance += exp.amount;
+        }
+      });
+
+      // Subtract amounts they owe
+      splits.forEach(split => {
+        if (split.user_id === member.user_id) {
+          balance -= split.amount;
+        }
+      });
+
+      // Apply settlements
+      settlements.forEach(s => {
+        if (s.paid_to === member.user_id) {
+          balance -= s.amount;
+        }
+        if (s.paid_by === member.user_id) {
+          balance += s.amount;
+        }
+      });
+
+      return {
+        user_id: member.user_id,
+        display_name: member.nickname || member.profile?.display_name || 'Member',
+        balance: Math.round(balance * 100) / 100,
+      };
     });
 
-    // Subtract amounts they owe
-    splits.forEach(split => {
-      if (split.user_id === member.user_id) {
-        balance -= split.amount;
-      }
+    // Calculate simplified debts
+    const simplifiedDebts: SimplifiedDebt[] = [];
+    const debtors = balances.filter(b => b.balance < 0).map(b => ({ ...b, balance: Math.abs(b.balance) }));
+    const creditors = balances.filter(b => b.balance > 0).map(b => ({ ...b }));
+
+    debtors.forEach(debtor => {
+      let remaining = debtor.balance;
+      creditors.forEach(creditor => {
+        if (remaining <= 0 || creditor.balance <= 0) return;
+        const amount = Math.min(remaining, creditor.balance);
+        if (amount > 0.01) {
+          simplifiedDebts.push({
+            from_user_id: debtor.user_id,
+            from_name: debtor.display_name,
+            to_user_id: creditor.user_id,
+            to_name: creditor.display_name,
+            amount: Math.round(amount * 100) / 100,
+          });
+          remaining -= amount;
+          creditor.balance -= amount;
+        }
+      });
     });
 
-    // Add settlements received
-    settlements.forEach(s => {
-      if (s.paid_to === member.user_id) {
-        balance -= s.amount;
-      }
-      if (s.paid_by === member.user_id) {
-        balance += s.amount;
-      }
-    });
-
-    return {
-      user_id: member.user_id,
-      display_name: member.nickname || member.profile?.display_name || 'Member',
-      balance: Math.round(balance * 100) / 100,
-    };
-  });
-
-  // Calculate simplified debts
-  const simplifiedDebts: SimplifiedDebt[] = [];
-  const debtors = balances.filter(b => b.balance < 0).map(b => ({ ...b, balance: Math.abs(b.balance) }));
-  const creditors = balances.filter(b => b.balance > 0);
-
-  debtors.forEach(debtor => {
-    let remaining = debtor.balance;
-    creditors.forEach(creditor => {
-      if (remaining <= 0 || creditor.balance <= 0) return;
-      const amount = Math.min(remaining, creditor.balance);
-      if (amount > 0.01) {
-        simplifiedDebts.push({
-          from_user_id: debtor.user_id,
-          from_name: debtor.display_name,
-          to_user_id: creditor.user_id,
-          to_name: creditor.display_name,
-          amount: Math.round(amount * 100) / 100,
-        });
-        remaining -= amount;
-        creditor.balance -= amount;
-      }
-    });
-  });
-
-  return { balances, simplifiedDebts };
+    return { balances, simplifiedDebts };
+  }, [members, expenses, splits, settlements]);
 }
 
 // Create group
@@ -1094,7 +1097,7 @@ export function useGroupChats(groupId: string | undefined) {
           .in('user_id', userIds);
 
         if (profilesError) {
-          console.error('Error fetching profiles for chat:', profilesError);
+          logger.error('Error fetching profiles for chat:', profilesError);
           // Continue without profiles rather than failing
         }
 
@@ -1111,7 +1114,7 @@ export function useGroupChats(groupId: string | undefined) {
           profiles: profileMap[message.user_id] || { user_id: message.user_id, display_name: null, avatar_url: null },
         })).reverse();
       } catch (error) {
-        console.error('Error fetching group chats:', error);
+        logger.error('Error fetching group chats:', error);
         throw error;
       }
     },
@@ -1163,7 +1166,7 @@ export function useSendGroupChat() {
     },
     onError: (error) => {
       const msg = error instanceof Error ? error.message : 'Failed to send message';
-      console.error('Chat error:', msg);
+      logger.error('Chat error:', msg);
       throw error;
     },
   });

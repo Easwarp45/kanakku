@@ -1,30 +1,57 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
   server: {
     host: "::",
     port: 8080,
   },
+  build: {
+    // P-4: Manual chunk splitting for optimal long-term caching.
+    // Each chunk changes independently — updating Framer Motion doesn't bust the React cache.
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Core React runtime — almost never changes
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          // Animation — large but stable
+          "vendor-motion": ["framer-motion"],
+          // Charts — only used on Analytics / Intelligence pages
+          "vendor-charts": ["recharts"],
+          // Supabase — stable
+          "vendor-supabase": ["@supabase/supabase-js"],
+          // TanStack Query
+          "vendor-query": ["@tanstack/react-query"],
+          // Date utilities
+          "vendor-dates": ["date-fns"],
+        },
+      },
+    },
+    // Warn if any chunk exceeds 400 KB gzipped
+    chunkSizeWarningLimit: 400,
+    // ES2020+ is supported natively by Capacitor's WebView
+    target: "es2020",
+  },
   plugins: [
     react(),
-    mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg", "favicon.ico", "apple-touch-icon.png", "icons/*.png"],
+      includeAssets: ["favicon.svg", "favicon.ico", "apple-touch-icon.png", "icons/*.png", "offline.html"],
       manifest: false, // Using external manifest.webmanifest
       devOptions: {
         enabled: true,
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webmanifest}"],
-        navigateFallback: "/index.html",
+        // PWA-4: navigateFallback set to offline.html for graceful offline UX
+        navigateFallback: "/offline.html",
         navigateFallbackDenylist: [/^\/api/],
         cleanupOutdatedCaches: true,
+        // PWA-3: Handle SKIP_WAITING message from applyUpdate()
+        additionalManifestEntries: [{ url: "/offline.html", revision: null }],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

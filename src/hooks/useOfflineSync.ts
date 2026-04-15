@@ -2,11 +2,11 @@ import { useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { 
-  getUnsyncedExpenses, 
-  markExpenseSynced, 
+import {
+  getUnsyncedExpenses,
+  markExpenseSynced,
   isOnline,
-  setupOnlineListener 
+  setupOnlineListener,
 } from '@/lib/offlineStorage';
 import { toast } from 'sonner';
 
@@ -17,7 +17,7 @@ export function useOfflineSync() {
   const syncExpenses = useCallback(async () => {
     if (!user || !isOnline()) return;
 
-    const unsynced = getUnsyncedExpenses();
+    const unsynced = await getUnsyncedExpenses();
     if (unsynced.length === 0) return;
 
     let syncedCount = 0;
@@ -43,17 +43,11 @@ export function useOfflineSync() {
 
         const { data: existingExpense, error: duplicateError } = await duplicateCheck.maybeSingle();
 
-        if (duplicateError) {
-          throw duplicateError;
-        }
+        if (duplicateError) throw duplicateError;
 
         if (existingExpense) {
-          try {
-            markExpenseSynced(expense.id);
-            syncedCount++;
-          } catch (markError) {
-            console.error('Failed to mark duplicated offline expense as synced:', markError);
-          }
+          await markExpenseSynced(expense.id);
+          syncedCount++;
           continue;
         }
 
@@ -67,17 +61,10 @@ export function useOfflineSync() {
           receipt_url: expense.receipt_url || null,
         });
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
-        try {
-          markExpenseSynced(expense.id);
-          syncedCount++;
-        } catch (markError) {
-          // If marking fails, duplicate guard above prevents reinserting next sync.
-          console.error('Expense uploaded but failed to mark as synced locally:', markError);
-        }
+        await markExpenseSynced(expense.id);
+        syncedCount++;
       } catch (err) {
         console.error('Failed to sync expense:', err);
       }
@@ -89,7 +76,6 @@ export function useOfflineSync() {
     }
   }, [user, queryClient]);
 
-  // Sync when coming online
   useEffect(() => {
     const cleanup = setupOnlineListener(
       () => {

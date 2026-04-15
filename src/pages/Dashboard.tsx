@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { useRecentExpenses, useTodayTotal, useMonthlyTotal } from '@/hooks/useExpenses';
@@ -107,17 +107,19 @@ export default function Dashboard() {
             {permission !== 'granted' && (
               <button
                 onClick={requestPermission}
+                aria-label="Enable notifications"
                 title="Enable notifications"
                 className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/8 hover:bg-white/10 transition-colors"
               >
-                <Bell className="h-4 w-4 text-muted-foreground" />
+                <Bell className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               </button>
             )}
             <button
               onClick={handleSignOut}
+              aria-label="Sign out"
               className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/8 hover:bg-white/10 transition-colors"
             >
-              <LogOut className="h-4 w-4 text-muted-foreground" />
+              <LogOut className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -314,7 +316,7 @@ export default function Dashboard() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{expense.description || config.label}</p>
-                      <p className="text-xs text-muted-foreground">{format(new Date(expense.expense_date), 'MMM d')}</p>
+                      <p className="text-xs text-muted-foreground">{format(parseISO(expense.expense_date), 'MMM d')}</p>
                     </div>
                     <span className="font-display font-bold text-sm text-foreground/90 shrink-0">
                       {formatCurrency(expense.amount, { maximumFractionDigits: 0 })}

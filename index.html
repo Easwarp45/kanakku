@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
-    
+
+    <!-- Content Security Policy (SEC-3) -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none';" />
+
     <!-- App Identity -->
     <title>Kanakku - Expense Tracker</title>
     <meta name="description" content="Track daily expenses and split bills with friends. UPI-focused expense management for India." />
@@ -38,10 +41,23 @@
     <meta name="twitter:description" content="Track daily expenses and split bills with friends." />
     <meta name="twitter:image" content="/og-image.png" />
 
-    <!-- Preconnect to fonts -->
+    <!-- Preconnect to external origins (P-2: reduces connection setup time) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Logo preload: ensures it's fetched before the splash screen renders (P-5) -->
+    <link rel="preload" as="image" href="/logo.png" />
+
+    <!-- Non-blocking Google Fonts (P-2: print media trick — font loads async, avoids render-blocking) -->
+    <link rel="preload" as="style"
+          href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" />
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
+          media="print" onload="this.media='all'" />
+    <noscript>
+      <link rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" />
+    </noscript>
   </head>
 
   <body>

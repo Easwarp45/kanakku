@@ -1,9 +1,11 @@
 /**
  * Performance monitoring utilities for tracking component render times
- * and identifying performance bottlenecks.
+ * and identifying performance bottlenecks. Logs are dev-only via logger.
  *
  * @module performance
  */
+
+import { logger } from './logger';
 
 function getPerformanceApi(): Performance | undefined {
   if (typeof globalThis === 'undefined' || typeof globalThis.performance === 'undefined') {
@@ -75,7 +77,7 @@ export function measureRender<T>(componentName: string, callback: () => T): T {
   const measure = perf.getEntriesByName(measureName)[0] as PerformanceMeasure | undefined;
   if (measure && measure.duration > 16) {
     // Log if render takes longer than 1 frame (16ms at 60fps)
-    console.warn(
+    logger.warn(
       `⚠️ ${componentName} took ${measure.duration.toFixed(2)}ms to render (> 16ms threshold)`
     );
   }
@@ -119,11 +121,11 @@ export function useRenderTracking(componentName: string) {
     if (measure) {
       const duration = measure.duration;
       if (duration > 16) {
-        console.warn(
+        logger.warn(
           `🐌 ${componentName} render: ${duration.toFixed(2)}ms (exceeds 16ms frame budget)`
         );
       } else if (duration > 8) {
-        console.log(
+        logger.log(
           `⚠️ ${componentName} render: ${duration.toFixed(2)}ms (approaching budget)`
         );
       }
@@ -162,17 +164,17 @@ export async function trackAsyncOperation<T>(
     const duration = now() - startTime;
 
     if (duration > 1000) {
-      console.warn(
+      logger.warn(
         `🐌 ${operationName} took ${duration.toFixed(0)}ms (> 1 second)`
       );
     } else if (process.env.NODE_ENV === 'development') {
-      console.log(`✓ ${operationName} completed in ${duration.toFixed(0)}ms`);
+      logger.log(`✓ ${operationName} completed in ${duration.toFixed(0)}ms`);
     }
 
     return result;
   } catch (error) {
     const duration = now() - startTime;
-    console.error(
+    logger.error(
       `❌ ${operationName} failed after ${duration.toFixed(0)}ms:`,
       error
     );
@@ -202,7 +204,7 @@ export function reportWebVitals(metric: any) {
 
   const threshold = thresholds[name];
   if (!threshold) {
-    console.log(`📊 ${name}: ${value}`);
+    logger.log(`📊 ${name}: ${value}`);
     return;
   }
 
@@ -217,7 +219,7 @@ export function reportWebVitals(metric: any) {
 
   const emoji = rating === 'good' ? '✅' : rating === 'needs-improvement' ? '⚠️' : '❌';
 
-  console.log(`${emoji} ${name}: ${value.toFixed(2)} (${rating}) [${id}]`);
+  logger.log(`${emoji} ${name}: ${value.toFixed(2)} (${rating}) [${id}]`);
 
   // In production, send to analytics:
   // analytics.track('web-vital', { name, value, id, rating });
@@ -255,5 +257,5 @@ export function clearAllPerformanceData() {
   const perf = getPerformanceApi();
   safeClearMarks(perf);
   safeClearMeasures(perf);
-  console.log('🧹 Performance data cleared');
+  logger.log('🧹 Performance data cleared');
 }

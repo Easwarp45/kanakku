@@ -47,6 +47,7 @@ import { cn } from '@/lib/utils';
 import BottomNav from '@/components/layout/BottomNav';
 import { useContacts } from '@/hooks/useContacts';
 import { toast } from 'sonner';
+import { logger } from '@/lib/logger';
 
 // Generate a deterministic color from a string (for avatars)
 function getAvatarColor(str: string): string {
@@ -108,7 +109,7 @@ export default function GroupDetail() {
     if (!removedRef.current) {
       removedRef.current = true;
       setRemoved(true);
-      console.log('🚫 Real-time removal notification received');
+      logger.log('🚫 Real-time removal notification received');
       toast.error('You were removed from this group');
       setTimeout(() => navigate('/groups'), 2000);
     }
@@ -127,7 +128,7 @@ export default function GroupDetail() {
     if (isMember === false && !removedRef.current) {
       removedRef.current = true;
       setRemoved(true);
-      console.log('🚫 Initial membership check failed - user not a member');
+      logger.log('🚫 Initial membership check failed - user not a member');
       toast.error('You are not a member of this group');
       setTimeout(() => navigate('/groups'), 2000);
     }
@@ -149,7 +150,7 @@ export default function GroupDetail() {
 
         removedRef.current = true;
         setRemoved(true);
-        console.log('User is not a member of this group - removing access');
+        logger.log('User is not a member of this group - removing access');
         toast.error('You were removed from this group');
 
         setTimeout(() => {

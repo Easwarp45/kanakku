@@ -19,12 +19,24 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
   static getDerivedStateFromError(error: Error): AppErrorBoundaryState {
     return {
       hasError: true,
+      // Only store the message for potential dev-mode display.
+      // Never render raw stack traces or DB details to end users.
       message: error.message || 'Unexpected error',
     };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('Unhandled React error:', error, info);
+    // SEC-4: Only log to console in development to prevent leaking internals.
+    // In production, wire this to Sentry or another error tracking service.
+    if (import.meta.env.DEV) {
+      console.error('Unhandled React error:', error, info);
+    }
+    // TODO: Sentry integration
+    // if (import.meta.env.PROD) {
+    //   import('@sentry/react').then(({ captureException }) =>
+    //     captureException(error, { contexts: { react: { componentStack: info.componentStack } } })
+    //   );
+    // }
   }
 
   private handleReload = () => {
@@ -43,7 +55,12 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
           <p className="mt-2 text-sm text-muted-foreground">
             The app hit an unexpected error. Reload to continue.
           </p>
-          <p className="mt-3 text-xs text-destructive break-words">{this.state.message}</p>
+          {/* SEC-4: Only show raw error message in development */}
+          {import.meta.env.DEV && (
+            <p className="mt-3 text-xs text-destructive break-words font-mono">
+              {this.state.message}
+            </p>
+          )}
           <Button className="mt-5 w-full" onClick={this.handleReload}>
             Reload App
           </Button>

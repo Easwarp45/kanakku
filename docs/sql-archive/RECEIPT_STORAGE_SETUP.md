@@ -86,7 +86,7 @@ receipts/public/a1b2c3d4-e5f6-7890-abcd-ef1234567890/receipt-1710432000000.jpg
 
 Once uploaded, the public URL will be:
 ```
-https://xtqtmcmheazewnpfftty.supabase.co/storage/v1/object/public/receipts/public/{userId}/{fileName}.ext
+https://<your-project-id>.supabase.co/storage/v1/object/public/receipts/public/{userId}/{fileName}.ext
 ```
 
 ## Troubleshooting

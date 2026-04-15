@@ -114,7 +114,7 @@ export function useCreateExpense() {
       if (!navigator.onLine) {
         // Import dynamically to avoid circular dependencies
         const { saveOfflineExpense } = await import('@/lib/offlineStorage');
-        const offlineExpense = saveOfflineExpense(input);
+        const offlineExpense = await saveOfflineExpense(input);
         return { ...offlineExpense, offline: true };
       }
 
@@ -216,7 +216,9 @@ export function useDeleteExpense() {
 
 export function useTodayTotal() {
   const { user } = useAuth();
-  const today = new Date().toISOString().split('T')[0];
+  // Use local date to avoid UTC offset issues (e.g. IST users seeing yesterday's date)
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
   return useQuery({
     queryKey: ['expenses', 'today-total', user?.id, today],

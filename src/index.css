@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+/* Fonts are loaded non-blocking via index.html <link> tags — no @import needed here */
 
 @tailwind base;
 @tailwind components;
@@ -107,18 +107,22 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    min-height: 100dvh;
+    /* Background gradient is rendered by body::before pseudo-element so it is
+       GPU-composited and does NOT repaint on every scroll frame (P-3 fix). */
+  }
+
+  /* GPU-composited fixed background — avoids Android WebView repaint on scroll */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
     background-image:
       radial-gradient(ellipse 80% 50% at 20% -20%, rgba(168,85,247,0.12) 0%, transparent 60%),
       radial-gradient(ellipse 60% 40% at 80% 110%, rgba(12,200,224,0.08) 0%, transparent 60%);
-    background-attachment: fixed;
-    min-height: 100dvh;
-  }
-
-  body.native-app {
-    overscroll-behavior-y: none;
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
-    background-attachment: scroll;
+    will-change: transform; /* promotes to composited layer */
   }
 
   html,
@@ -163,14 +167,19 @@
 }
 
 @layer components {
-  /* Glass card */
+  /* Glass card — @supports fallback for low-end Android without backdrop-filter */
   .glass-card {
-    background: rgba(255,255,255,0.04);
+    background: rgba(255,255,255,0.06);
     border: 1px solid rgba(255,255,255,0.08);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
     border-radius: var(--radius);
     transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  @supports (backdrop-filter: blur(1px)) {
+    .glass-card {
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      background: rgba(255,255,255,0.04);
+    }
   }
   .glass-card:hover {
     border-color: rgba(168,85,247,0.28);
@@ -186,6 +195,7 @@
     transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
     position: relative;
     overflow: hidden;
+    will-change: transform; /* GPU layer for hover transform — prevents layout recalc */
   }
   .bento-card::before {
     content: '';
@@ -216,14 +226,19 @@
     box-shadow: 0 0 12px rgba(168,85,247,0.25);
   }
 
-  /* Floating nav pill */
+  /* Floating nav pill — with @supports fallback for low-end Android (CC-2 fix) */
   .nav-pill {
-    background: rgba(14,14,20,0.88);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+    background: rgba(14,14,20,0.95);
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 9999px;
     box-shadow: 0 4px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(168,85,247,0.12);
+  }
+  @supports (backdrop-filter: blur(1px)) {
+    .nav-pill {
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      background: rgba(14,14,20,0.72);
+    }
   }
 
   /* Gradient text */
@@ -350,9 +365,10 @@
     to   { transform: scale(1) translateY(0); opacity: 1; }
   }
 
-  button { @apply transition-all duration-200 ease-out; }
+  /* touch-action: manipulation eliminates 300ms tap delay on older Android WebViews */
+  button { @apply transition-all duration-200 ease-out; touch-action: manipulation; }
   button:active { @apply scale-95; }
-  a { @apply transition-colors duration-200; }
+  a { @apply transition-colors duration-200; touch-action: manipulation; }
 
   input:focus-visible,
   textarea:focus-visible,

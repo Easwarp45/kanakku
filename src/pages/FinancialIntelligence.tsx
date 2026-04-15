@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  format, parseISO, subDays, startOfDay,
-  getDay, getHours, eachDayOfInterval, getISOWeek
-} from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import {
   ArrowLeft, Brain, Zap, Clock, MapPin, Repeat2,
   Target, TrendingUp, AlertTriangle, CheckCircle2,
@@ -22,110 +19,14 @@ import BottomNav from '@/components/layout/BottomNav';
 import { cn } from '@/lib/utils';
 import type { SubscriptionDetection } from '@/types/financial-intelligence';
 import type { Group } from '@/types/group';
-
-/* ─────────────────── CONSTANTS ─────────────────── */
-const SECTION_IDS = ['subscriptions', 'heatmap', 'time', 'settlements', 'goals'] as const;
-type SectionId = (typeof SECTION_IDS)[number];
-type TimeBlock = 'morning' | 'afternoon' | 'evening' | 'night';
-
-const SECTION_META: Record<SectionId, { label: string; icon: React.ElementType; color: string }> = {
-  subscriptions: { label: 'Subscriptions', icon: Repeat2,             color: 'text-violet-400' },
-  heatmap:       { label: 'Spend Map',     icon: MapPin,               color: 'text-cyan-400'   },
-  time:          { label: 'Time Patterns', icon: Clock,                color: 'text-pink-400'   },
-  settlements:   { label: 'Settlements',   icon: SplitSquareHorizontal, color: 'text-amber-400' },
-  goals:         { label: 'Goals',         icon: Target,               color: 'text-emerald-400'},
-};
-
-const STATUS_CFG = {
-  'active':                   { label: 'Active',     cls: 'text-emerald-400 bg-emerald-500/12 border-emerald-500/25', icon: CheckCircle2 },
-  'possible-unused':          { label: 'Unused?',    cls: 'text-amber-400   bg-amber-500/12   border-amber-500/25',   icon: AlertTriangle },
-  'low-value':                { label: 'Pricey',     cls: 'text-red-400    bg-red-500/12    border-red-500/25',      icon: TrendingUp   },
-  'low-value-possible-unused':{ label: '⚠ Cancel',   cls: 'text-red-400    bg-red-500/12    border-red-500/25',      icon: XCircle      },
-} as const;
-
-const GOAL_CFG = {
-  'on-track':  { color: 'text-emerald-400', grad: 'from-emerald-500/15 to-teal-500/5',    icon: '🚀' },
-  'at-risk':   { color: 'text-amber-400',   grad: 'from-amber-500/15 to-orange-500/5',    icon: '⚡' },
-  'behind':    { color: 'text-red-400',     grad: 'from-red-500/15 to-rose-500/5',        icon: '🔥' },
-  'completed': { color: 'text-violet-400',  grad: 'from-violet-500/15 to-purple-500/5',  icon: '🎉' },
-  'expired':   { color: 'text-slate-400',   grad: 'from-slate-500/15 to-gray-500/5',     icon: '⏰' },
-} as const;
-
-const TIME_CFG: Record<TimeBlock, { label: string; sub: string; color: string }> = {
-  morning:   { label: '☀️ Morning',    sub: '5 AM – 12 PM', color: '#FACC15' },
-  afternoon: { label: '🌤 Afternoon',  sub: '12 PM – 5 PM', color: '#FB923C' },
-  evening:   { label: '🌆 Evening',    sub: '5 PM – 9 PM',  color: '#A855F7' },
-  night:     { label: '🌙 Night',      sub: '9 PM – 5 AM',  color: '#22D3EE' },
-};
-const BLOCKS: TimeBlock[] = ['morning', 'afternoon', 'evening', 'night'];
-const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-function getDefaultGoalState() {
-  const d = new Date();
-  d.setMonth(d.getMonth() + 3);
-  return {
-    target: 100000,
-    saved: 20000,
-    deadline: d.toISOString().split('T')[0],
-  };
-}
-
-/* ─────────────────── PURE HELPERS ─────────────────── */
-function getTimeBlock(hour: number): TimeBlock {
-  if (hour >= 5 && hour < 12)  return 'morning';
-  if (hour >= 12 && hour < 17) return 'afternoon';
-  if (hour >= 17 && hour < 21) return 'evening';
-  return 'night';
-}
-
-/* Calendar heatmap: last WEEKS weeks, per-day spending totals */
-function buildCalendarHeatmap(expenses: { amount: number; expense_date: string }[], weeks = 14) {
-  const today = startOfDay(new Date());
-  const start = subDays(today, weeks * 7 - 1);
-  const days = eachDayOfInterval({ start, end: today });
-
-  const map: Record<string, number> = {};
-  for (const e of expenses) {
-    const key = e.expense_date.slice(0, 10);
-    map[key] = (map[key] || 0) + e.amount;
-  }
-
-  return days.map(d => ({
-    date: format(d, 'yyyy-MM-dd'),
-    label: format(d, 'dd MMM'),
-    dow: getDay(d),        // 0=Sun
-    week: getISOWeek(d),
-    amount: map[format(d, 'yyyy-MM-dd')] ?? 0,
-  }));
-}
-
-/* Time distribution from updated_at timestamps */
-function buildTimeDist(expenses: { amount: number; updated_at: string }[]) {
-  const buckets: Record<TimeBlock, { spent: number; count: number }> = {
-    morning:   { spent: 0, count: 0 },
-    afternoon: { spent: 0, count: 0 },
-    evening:   { spent: 0, count: 0 },
-    night:     { spent: 0, count: 0 },
-  };
-  for (const e of expenses) {
-    const h = getHours(parseISO(e.updated_at));
-    const b = getTimeBlock(h);
-    buckets[b].spent += e.amount;
-    buckets[b].count += 1;
-  }
-  return BLOCKS.map(b => ({ block: b, ...buckets[b] }));
-}
-
-/* Day-of-week spending totals */
-function buildDowDist(expenses: { amount: number; expense_date: string }[]) {
-  const buckets = Array.from({ length: 7 }, (_, i) => ({ dow: i, amount: 0, count: 0 }));
-  for (const e of expenses) {
-    const d = getDay(parseISO(e.expense_date));
-    buckets[d].amount += e.amount;
-    buckets[d].count  += 1;
-  }
-  return buckets;
-}
+// Extracted constants and helpers (UX-1 split)
+import {
+  SECTION_IDS, SECTION_META, STATUS_CFG, GOAL_CFG, TIME_CFG, BLOCKS, DOW,
+  type SectionId,
+} from './FinancialIntelligence.constants';
+import {
+  buildCalendarHeatmap, buildTimeDist, buildDowDist, getDefaultGoalState,
+} from './FinancialIntelligence.helpers';
 
 /* ─────────────────── SHARED UI ATOMS ─────────────────── */
 function Skel({ className }: { className?: string }) {

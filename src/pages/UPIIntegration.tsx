@@ -195,6 +195,13 @@ export default function UPIIntegration() {
           </AlertDescription>
         </Alert>
 
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Important:</strong> Kanakku does not directly verify bank settlement status. Expenses are saved only when you tap <em>Confirm as Paid</em>. Always verify success in your UPI app using UTR/reference details.
+          </AlertDescription>
+        </Alert>
+
         {/* Create UPI Payment */}
         <Card>
           <CardHeader>

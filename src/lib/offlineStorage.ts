@@ -1,6 +1,8 @@
-// Offline storage for expenses using IndexedDB via localStorage fallback
-// This enables offline expense entry with sync when online
+// Offline storage for expenses using IndexedDB (via idb-keyval).
+// IndexedDB is async, eviction-safe, and supports up to ~1 GB,
+// making it far superior to localStorage for PWA offline queues.
 
+import { get, update } from 'idb-keyval';
 import type { CreateExpenseInput } from '@/types/expense';
 
 const OFFLINE_EXPENSES_KEY = 'kanakku_offline_expenses';
@@ -13,21 +15,22 @@ export interface OfflineExpense extends CreateExpenseInput {
 
 // Generate a temporary ID for offline expenses
 function generateTempId(): string {
-  return `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `offline_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-// Get all offline expenses
-export function getOfflineExpenses(): OfflineExpense[] {
+// ── IndexedDB helpers ────────────────────────────────────────────────────────
+
+/** Get all offline expenses from IndexedDB */
+export async function getOfflineExpenses(): Promise<OfflineExpense[]> {
   try {
-    const stored = localStorage.getItem(OFFLINE_EXPENSES_KEY);
-    return stored ? JSON.parse(stored) : [];
+    return (await get<OfflineExpense[]>(OFFLINE_EXPENSES_KEY)) ?? [];
   } catch {
     return [];
   }
 }
 
-// Save an expense offline
-export function saveOfflineExpense(expense: CreateExpenseInput): OfflineExpense {
+/** Save an expense offline to IndexedDB */
+export async function saveOfflineExpense(expense: CreateExpenseInput): Promise<OfflineExpense> {
   const offlineExpense: OfflineExpense = {
     ...expense,
     id: generateTempId(),
@@ -35,56 +38,51 @@ export function saveOfflineExpense(expense: CreateExpenseInput): OfflineExpense 
     synced: false,
   };
 
-  const expenses = getOfflineExpenses();
-  expenses.push(offlineExpense);
-  localStorage.setItem(OFFLINE_EXPENSES_KEY, JSON.stringify(expenses));
-
+  await update<OfflineExpense[]>(OFFLINE_EXPENSES_KEY, (arr = []) => [...arr, offlineExpense]);
   return offlineExpense;
 }
 
-// Mark an offline expense as synced
-export function markExpenseSynced(id: string): void {
-  const expenses = getOfflineExpenses();
-  const updated = expenses.filter(exp => exp.id !== id);
-  localStorage.setItem(OFFLINE_EXPENSES_KEY, JSON.stringify(updated));
+/** Remove a synced expense from IndexedDB by its temp id */
+export async function markExpenseSynced(id: string): Promise<void> {
+  await update<OfflineExpense[]>(OFFLINE_EXPENSES_KEY, (arr = []) =>
+    arr.filter((e) => e.id !== id)
+  );
 }
 
-// Get unsynced expenses
-export function getUnsyncedExpenses(): OfflineExpense[] {
-  return getOfflineExpenses().filter(exp => !exp.synced);
+/** Return only expenses that haven't been synced yet */
+export async function getUnsyncedExpenses(): Promise<OfflineExpense[]> {
+  const all = await getOfflineExpenses();
+  return all.filter((e) => !e.synced);
 }
 
-// Clear all synced expenses
-export function clearSyncedExpenses(): void {
-  const unsynced = getUnsyncedExpenses();
-  localStorage.setItem(OFFLINE_EXPENSES_KEY, JSON.stringify(unsynced));
+/** Purge all synced expenses, keeping only pending ones */
+export async function clearSyncedExpenses(): Promise<void> {
+  const unsynced = await getUnsyncedExpenses();
+  await update<OfflineExpense[]>(OFFLINE_EXPENSES_KEY, () => unsynced);
 }
 
-// Check if we're online - improved with actual network check
+// ── Network detection ────────────────────────────────────────────────────────
+
 let lastOnlineStatus = navigator.onLine;
 let checkInProgress = false;
 
 async function verifyOnlineStatus(): Promise<boolean> {
-  // Skip if already checking
   if (checkInProgress) return lastOnlineStatus;
-  
-  // First check: navigator.onLine (fast, unreliable)
   if (!navigator.onLine) {
+    lastOnlineStatus = false;
     return false;
   }
 
-  // Second check: Try actual network request to verify connectivity
+  // Ping our own Supabase project — always reachable if the app is usable,
+  // avoids geo-specific blockage issues with third-party domains (e.g. google.com).
   try {
     checkInProgress = true;
-    // Use a simple HEAD request to Supabase healthcheck (doesn't require auth)
-    const response = await fetch(
-      'https://www.google.com/favicon.ico',
-      { 
-        method: 'HEAD',
-        cache: 'no-store',
-        mode: 'no-cors'
-      }
-    );
+    await fetch(`${import.meta.env.VITE_SUPABASE_URL}/health`, {
+      method: 'HEAD',
+      cache: 'no-store',
+      mode: 'no-cors',
+      signal: AbortSignal.timeout(3000),
+    });
     lastOnlineStatus = true;
     return true;
   } catch {
@@ -96,17 +94,14 @@ async function verifyOnlineStatus(): Promise<boolean> {
 }
 
 export function isOnline(): boolean {
-  // Return cached status (will be updated by event listeners and periodic checks)
   return lastOnlineStatus;
 }
 
-// Listen for online/offline events with improved detection
+/** Set up online/offline listeners. Returns a cleanup function. */
 export function setupOnlineListener(onOnline: () => void, onOffline: () => void): () => void {
   const handleOnline = async () => {
-    const isReallyOnline = await verifyOnlineStatus();
-    if (isReallyOnline && lastOnlineStatus) {
-      onOnline();
-    }
+    const reallyOnline = await verifyOnlineStatus();
+    if (reallyOnline) onOnline();
   };
 
   const handleOffline = () => {
@@ -117,17 +112,13 @@ export function setupOnlineListener(onOnline: () => void, onOffline: () => void)
   window.addEventListener('online', handleOnline);
   window.addEventListener('offline', handleOffline);
 
-  // Periodic check every 10 seconds to catch changes missed by events
+  // Periodic check every 30 seconds (was 10 s) to reduce network noise
   const intervalId = setInterval(async () => {
     const wasOnline = lastOnlineStatus;
     const isNowOnline = await verifyOnlineStatus();
-    
-    if (!wasOnline && isNowOnline) {
-      onOnline();
-    } else if (wasOnline && !isNowOnline) {
-      onOffline();
-    }
-  }, 10000);
+    if (!wasOnline && isNowOnline) onOnline();
+    else if (wasOnline && !isNowOnline) onOffline();
+  }, 30_000);
 
   return () => {
     window.removeEventListener('online', handleOnline);
