@@ -132,6 +132,22 @@
     min-height: 100%;
   }
 
+  /**
+   * Native safe-area fix:
+   * StatusBar.setOverlaysWebView(false) keeps the status bar opaque, but
+   * viewport-fit=cover (needed for edge-to-edge background) still lets the
+   * WebView frame start from y=0. Applying env(safe-area-inset-top) as a
+   * padding-top on the root shifts all content below the status bar / notch.
+   *
+   * We use padding-top (not margin) so the background colour fills the gap.
+   */
+  body.native-app #root {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
   body.native-app input,
   body.native-app textarea,
   body.native-app [contenteditable='true'] {

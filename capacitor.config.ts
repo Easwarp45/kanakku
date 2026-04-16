@@ -19,13 +19,14 @@ const config: CapacitorConfig = {
       backgroundColor: '#0b0b11',
       showSpinner: false,
       androidScaleType: 'CENTER_CROP',
-      splashFullScreen: true,
-      splashImmersive: true,
+      // NOTE: splashFullScreen / splashImmersive intentionally omitted.
+      // Those flags force Android into immersive mode which hides the status bar
+      // and causes the WebView to extend behind the notch after launch.
     },
     StatusBar: {
       style: 'DARK',
       backgroundColor: '#0b0b11',
-      overlaysWebView: false,
+      overlaysWebView: false, // WebView must NOT extend under status bar
     },
     Keyboard: {
       style: 'dark',
