@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useHaptics } from '@/hooks/useHaptics';
 import type { Income, CreateIncomeInput, UpdateIncomeInput, IncomeSource } from '@/types/income';
 import { toast } from 'sonner';
 
@@ -74,6 +75,7 @@ export function useIncomeRecord(id: string | undefined) {
 export function useCreateIncome() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { success, error: errorHaptic } = useHaptics();
 
   return useMutation({
     mutationFn: async (input: CreateIncomeInput) => {
@@ -97,9 +99,11 @@ export function useCreateIncome() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['income'] });
+      success();
       toast.success('Income added successfully');
     },
     onError: (error) => {
+      errorHaptic();
       toast.error('Failed to add income: ' + error.message);
     },
   });
@@ -107,6 +111,7 @@ export function useCreateIncome() {
 
 export function useUpdateIncome() {
   const queryClient = useQueryClient();
+  const { success, error: errorHaptic } = useHaptics();
 
   return useMutation({
     mutationFn: async ({ id, ...input }: UpdateIncomeInput) => {
@@ -131,9 +136,11 @@ export function useUpdateIncome() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['income'] });
       queryClient.invalidateQueries({ queryKey: ['income-record', data.id] });
+      success();
       toast.success('Income updated successfully');
     },
     onError: (error) => {
+      errorHaptic();
       toast.error('Failed to update income: ' + error.message);
     },
   });
@@ -141,6 +148,7 @@ export function useUpdateIncome() {
 
 export function useDeleteIncome() {
   const queryClient = useQueryClient();
+  const { success, error: errorHaptic } = useHaptics();
 
   return useMutation({
     mutationFn: async (id: string) => {
@@ -152,9 +160,11 @@ export function useDeleteIncome() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['income'] });
+      success();
       toast.success('Income deleted');
     },
     onError: (error) => {
+      errorHaptic();
       toast.error('Failed to delete income: ' + error.message);
     },
   });

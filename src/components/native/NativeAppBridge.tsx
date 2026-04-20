@@ -1,97 +1,111 @@
 import { useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
-import { App as CapApp } from '@capacitor/app';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
+import { Keyboard } from '@capacitor/keyboard';
 
-// Root-level tab paths — pressing Back here minimizes the app instead of going back
-const ROOT_PATHS = new Set([
-  '/dashboard',
-  '/expenses',
-  '/income',
-  '/groups',
-  '/intelligence',
-  '/profile',
-  '/analytics',
-  '/insights/history',
-]);
+const ROOT_ROUTES = ['/dashboard', '/expenses', '/income', '/budget', '/analytics'];
 
-export function NativeAppBridge() {
-  const location = useLocation();
+export default function NativeAppBridge() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const lastBackPress = useRef<number>(0);
 
-  // Always keep a fresh ref to the current path so the back-button handler
-  // (which is registered in a closure) never uses a stale value.
-  const pathRef = useRef(location.pathname);
-
-  useEffect(() => {
-    pathRef.current = location.pathname;
-  }, [location.pathname]);
-
-  // ── One-time native setup ─────────────────────────────────────────────────
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
     document.body.classList.add('native-app');
 
-    // Keep status bar below the web content (no overlay = respects safe area)
-    void StatusBar.setStyle({ style: Style.Dark });
-    void StatusBar.setBackgroundColor({ color: '#0b0b11' });
-    void StatusBar.setOverlaysWebView({ overlay: false });
-
-    void SplashScreen.hide({ fadeOutDuration: 280 });
-
-    // Deep-link handler (register once; navigate ref is re-used via closure below)
-    let deepLinkHandle: PluginListenerHandle | null = null;
-    void CapApp.addListener('appUrlOpen', (event) => {
+    const setup = async () => {
       try {
-        const url = new URL(event.url);
-        const targetPath = `${url.pathname}${url.search}${url.hash}`;
-        if (targetPath && targetPath !== '/') {
-          navigate(targetPath);
-        }
+        await StatusBar.setStyle({ style: Style.Dark });
+        await StatusBar.setBackgroundColor({ color: '#0b0b11' });
+        await StatusBar.setOverlaysWebView({ overlay: false });
       } catch {
-        // Ignore invalid deep-link URLs.
+        // Ignore status bar setup failures silently.
       }
-    }).then((handle) => {
-      deepLinkHandle = handle;
-    });
+
+      window.setTimeout(async () => {
+        try {
+          await SplashScreen.hide({ fadeOutDuration: 300 });
+        } catch {
+          // Ignore splash hide failures silently.
+        }
+      }, 400);
+
+      try {
+        await Keyboard.setAccessoryBarVisible({ isVisible: false });
+        await Keyboard.setScroll({ isDisabled: true });
+      } catch {
+        // Ignore keyboard setup failures silently.
+      }
+    };
+
+    void setup();
 
     return () => {
-      deepLinkHandle?.remove();
       document.body.classList.remove('native-app');
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // intentionally runs once
+  }, []);
 
-  // ── Back-button handler — re-registered when navigate changes ─────────────
-  // Keeping this in a separate effect tied to `navigate` ensures we always
-  // hold a fresh `navigate` reference without re-running the whole setup.
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
-    let backHandle: PluginListenerHandle | null = null;
+    const backHandler = App.addListener('backButton', async () => {
+      const isRootRoute = ROOT_ROUTES.some((route) => location.pathname === route);
 
-    void CapApp.addListener('backButton', () => {
-      const currentPath = pathRef.current;
+      if (isRootRoute) {
+        const now = Date.now();
 
-      // On root tabs → minimize the app (Android home screen behaviour)
-      if (ROOT_PATHS.has(currentPath)) {
-        void CapApp.minimizeApp();
+        if (now - lastBackPress.current < 2000) {
+          try {
+            await Haptics.impact({ style: ImpactStyle.Medium });
+          } catch {
+            // Ignore haptics failures silently.
+          }
+          await App.exitApp();
+          return;
+        }
+
+        lastBackPress.current = now;
+        try {
+          await Haptics.impact({ style: ImpactStyle.Light });
+        } catch {
+          // Ignore haptics failures silently.
+        }
+        window.dispatchEvent(new CustomEvent('native:back-press-hint'));
         return;
       }
 
-      // On any sub-page → go back to the previous screen in history
+      try {
+        await Haptics.impact({ style: ImpactStyle.Light });
+      } catch {
+        // Ignore haptics failures silently.
+      }
       navigate(-1);
-    }).then((handle) => {
-      backHandle = handle;
     });
 
     return () => {
-      backHandle?.remove();
+      void backHandler.then((handle) => handle.remove());
     };
-  }, [navigate]);
+  }, [location.pathname, navigate]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const stateHandler = App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) {
+        window.dispatchEvent(new CustomEvent('native:app-foreground'));
+      }
+    });
+
+    return () => {
+      void stateHandler.then((handle) => handle.remove());
+    };
+  }, []);
 
   return null;
 }

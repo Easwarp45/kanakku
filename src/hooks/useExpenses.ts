@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useHaptics } from '@/hooks/useHaptics';
 import type { Expense, CreateExpenseInput, UpdateExpenseInput, ExpenseCategory, PaymentMethod } from '@/types/expense';
 import { toast } from 'sonner';
 
@@ -105,6 +106,7 @@ export function useRecentExpenses(limit: number = 5) {
 export function useCreateExpense() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { success, error: errorHaptic, warning } = useHaptics();
 
   return useMutation({
     mutationFn: async (input: CreateExpenseInput) => {
@@ -138,12 +140,15 @@ export function useCreateExpense() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
       if ((data as any).offline) {
+        warning();
         toast.info('Expense saved offline. Will sync when online.');
       } else {
+        success();
         toast.success('Expense added successfully');
       }
     },
     onError: (error) => {
+      errorHaptic();
       toast.error('Failed to add expense: ' + error.message);
     },
   });
@@ -152,6 +157,7 @@ export function useCreateExpense() {
 export function useUpdateExpense() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { success, error: errorHaptic } = useHaptics();
 
   return useMutation({
     mutationFn: async ({ id, ...input }: UpdateExpenseInput) => {
@@ -180,9 +186,11 @@ export function useUpdateExpense() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
       queryClient.invalidateQueries({ queryKey: ['expense', data.id] });
+      success();
       toast.success('Expense updated successfully');
     },
     onError: (error) => {
+      errorHaptic();
       toast.error('Failed to update expense: ' + error.message);
     },
   });
@@ -191,6 +199,7 @@ export function useUpdateExpense() {
 export function useDeleteExpense() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { success, error: errorHaptic } = useHaptics();
 
   return useMutation({
     mutationFn: async (id: string) => {
@@ -206,9 +215,11 @@ export function useDeleteExpense() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      success();
       toast.success('Expense deleted');
     },
     onError: (error) => {
+      errorHaptic();
       toast.error('Failed to delete expense: ' + error.message);
     },
   });

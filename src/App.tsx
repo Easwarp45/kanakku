@@ -13,8 +13,10 @@ import { NotificationManager } from "@/components/notifications/NotificationMana
 import { Onboarding } from "@/components/onboarding/Onboarding";
 import { RealtimeSync } from "@/components/realtime/RealtimeSync";
 import { SplashScreen } from "@/components/ui/SplashScreen";
-import { NativeAppBridge } from "@/components/native/NativeAppBridge";
-import { useState } from "react";
+import NativeAppBridge from "@/components/native/NativeAppBridge";
+import PageTransition from "@/components/layout/PageTransition";
+import { toast } from "sonner";
+import { useEffect, useState } from "react";
 
 // ── Critical path pages: loaded eagerly (needed on first route) ──────────────
 import Login from "./pages/Login";
@@ -80,6 +82,26 @@ function App() {
   const [splashDone, setSplashDone] = useState(false);
   const isNative = Capacitor.isNativePlatform();
 
+  useEffect(() => {
+    if (!isNative) return;
+
+    const handleBackHint = () => {
+      toast("Press back again to exit");
+    };
+
+    const handleForeground = () => {
+      void queryClient.invalidateQueries();
+    };
+
+    window.addEventListener('native:back-press-hint', handleBackHint);
+    window.addEventListener('native:app-foreground', handleForeground);
+
+    return () => {
+      window.removeEventListener('native:back-press-hint', handleBackHint);
+      window.removeEventListener('native:app-foreground', handleForeground);
+    };
+  }, [isNative]);
+
   return (
     <QueryClientProvider client={queryClient}>
       {!isNative && !splashDone && (
@@ -98,40 +120,44 @@ function App() {
               <NativeAppBridge />
               {/* Suspense wraps all routes — PageSkeleton shown on lazy chunk load */}
               <Suspense fallback={<PageSkeleton />}>
-                <Routes>
-                  {/* Public routes */}
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/signup" element={<Signup />} />
-                  <Route path="/forgot-password" element={<ForgotPassword />} />
-                  <Route path="/install" element={<Install />} />
+                <div style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
+                  <PageTransition>
+                    <Routes>
+                      {/* Public routes */}
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/signup" element={<Signup />} />
+                      <Route path="/forgot-password" element={<ForgotPassword />} />
+                      <Route path="/install" element={<Install />} />
 
-                  {/* Protected routes */}
-                  <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                  <Route path="/add-expense" element={<ProtectedRoute><AddExpense /></ProtectedRoute>} />
-                  <Route path="/add-income" element={<ProtectedRoute><AddIncome /></ProtectedRoute>} />
-                  <Route path="/income" element={<ProtectedRoute><Income /></ProtectedRoute>} />
-                  <Route path="/income/:id" element={<ProtectedRoute><IncomeDetail /></ProtectedRoute>} />
-                  <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
-                  <Route path="/expenses/:id" element={<ProtectedRoute><ExpenseDetail /></ProtectedRoute>} />
-                  <Route path="/upi" element={<ProtectedRoute><UPIIntegration /></ProtectedRoute>} />
-                  <Route path="/groups" element={<ProtectedRoute><Groups /></ProtectedRoute>} />
-                  <Route path="/groups/:id" element={<ProtectedRoute><GroupDetail /></ProtectedRoute>} />
-                  <Route path="/groups/:id/add-expense" element={<ProtectedRoute><AddGroupExpense /></ProtectedRoute>} />
-                  <Route path="/groups/:id/expenses/:expenseId/edit" element={<ProtectedRoute><EditGroupExpense /></ProtectedRoute>} />
-                  <Route path="/groups/:id/settle" element={<ProtectedRoute><SettleUp /></ProtectedRoute>} />
-                  <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-                  <Route path="/insights/history" element={<ProtectedRoute><InsightsHistory /></ProtectedRoute>} />
-                  <Route path="/intelligence" element={<ProtectedRoute><FinancialIntelligence /></ProtectedRoute>} />
-                  <Route path="/wrap" element={<ProtectedRoute><MonthlyWrap /></ProtectedRoute>} />
-                  <Route path="/budget" element={<ProtectedRoute><Budget /></ProtectedRoute>} />
-                  <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                      {/* Protected routes */}
+                      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                      <Route path="/add-expense" element={<ProtectedRoute><AddExpense /></ProtectedRoute>} />
+                      <Route path="/add-income" element={<ProtectedRoute><AddIncome /></ProtectedRoute>} />
+                      <Route path="/income" element={<ProtectedRoute><Income /></ProtectedRoute>} />
+                      <Route path="/income/:id" element={<ProtectedRoute><IncomeDetail /></ProtectedRoute>} />
+                      <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
+                      <Route path="/expenses/:id" element={<ProtectedRoute><ExpenseDetail /></ProtectedRoute>} />
+                      <Route path="/upi" element={<ProtectedRoute><UPIIntegration /></ProtectedRoute>} />
+                      <Route path="/groups" element={<ProtectedRoute><Groups /></ProtectedRoute>} />
+                      <Route path="/groups/:id" element={<ProtectedRoute><GroupDetail /></ProtectedRoute>} />
+                      <Route path="/groups/:id/add-expense" element={<ProtectedRoute><AddGroupExpense /></ProtectedRoute>} />
+                      <Route path="/groups/:id/expenses/:expenseId/edit" element={<ProtectedRoute><EditGroupExpense /></ProtectedRoute>} />
+                      <Route path="/groups/:id/settle" element={<ProtectedRoute><SettleUp /></ProtectedRoute>} />
+                      <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+                      <Route path="/insights/history" element={<ProtectedRoute><InsightsHistory /></ProtectedRoute>} />
+                      <Route path="/intelligence" element={<ProtectedRoute><FinancialIntelligence /></ProtectedRoute>} />
+                      <Route path="/wrap" element={<ProtectedRoute><MonthlyWrap /></ProtectedRoute>} />
+                      <Route path="/budget" element={<ProtectedRoute><Budget /></ProtectedRoute>} />
+                      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
-                  {/* Redirect root to dashboard */}
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                      {/* Redirect root to dashboard */}
+                      <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-                  {/* Catch-all */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
+                      {/* Catch-all */}
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </PageTransition>
+                </div>
               </Suspense>
             </BrowserRouter>
           </TooltipProvider>

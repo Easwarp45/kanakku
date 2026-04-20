@@ -4,7 +4,6 @@ const config: CapacitorConfig = {
   appId: 'com.kanakku.personal',
   appName: 'Kanakku',
   webDir: 'dist',
-  bundledWebRuntime: false,
   android: {
     backgroundColor: '#0b0b11',
   },
@@ -14,8 +13,8 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchAutoHide: true,
-      launchShowDuration: 1200,
+      launchAutoHide: false,
+      launchShowDuration: 2500,
       backgroundColor: '#0b0b11',
       showSpinner: false,
       androidScaleType: 'CENTER_CROP',
@@ -30,6 +29,8 @@ const config: CapacitorConfig = {
     },
     Keyboard: {
       style: 'dark',
+      resize: 'body',
+      resizeOnFullScreen: true,
     },
   },
 };

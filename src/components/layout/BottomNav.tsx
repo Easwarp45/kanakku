@@ -1,8 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Receipt, Users, User, Wallet, Brain } from 'lucide-react';
-import { Capacitor } from '@capacitor/core';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { cn } from '@/lib/utils';
+import { useHaptics } from '@/hooks/useHaptics';
 import { motion } from 'framer-motion';
 
 const navItems = [
@@ -16,14 +15,11 @@ const navItems = [
 
 export default function BottomNav() {
   const location = useLocation();
+  const { light } = useHaptics();
 
-  const handleNavTap = async (isActive: boolean) => {
-    if (isActive || !Capacitor.isNativePlatform()) return;
-    try {
-      await Haptics.impact({ style: ImpactStyle.Light });
-    } catch {
-      // Ignore haptics failures silently.
-    }
+  const handleNavTap = (isActive: boolean) => {
+    if (isActive) return;
+    light();
   };
 
   return (
