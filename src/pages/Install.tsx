@@ -26,7 +26,7 @@ export default function Install() {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   return (
-    <div className="min-h-screen bg-background p-4 safe-top safe-bottom">
+    <div className="page-content min-h-screen bg-background p-4 safe-top safe-bottom">
       <div className="max-w-md mx-auto pt-8">
         {/* Header */}
         <div className="text-center mb-8">

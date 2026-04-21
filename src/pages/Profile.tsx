@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import BottomNav from '@/components/layout/BottomNav';
 import {
   User, Mail, Phone, Globe, Moon, Sun, LogOut,
   Save, Loader2, Shield, Info
@@ -90,7 +89,7 @@ export default function Profile() {
   const isDark = theme === 'dark';
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="page-content min-h-screen bg-background pb-20">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
         <div className="flex items-center justify-between p-4">
@@ -253,8 +252,6 @@ export default function Profile() {
           </>
         )}
       </div>
-
-      <BottomNav />
     </div>
   );
 }

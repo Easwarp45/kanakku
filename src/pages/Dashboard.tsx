@@ -7,7 +7,6 @@ import { useRecentExpenses, useTodayTotal, useMonthlyTotal } from '@/hooks/useEx
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useSmartInsights } from '../hooks/useSmartInsights';
 import { useCurrency } from '@/hooks/useCurrency';
-import BottomNav from '@/components/layout/BottomNav';
 import { CountUpNumber } from '@/components/ui/count-up-number';
 import {
   LogOut, Plus, Users, TrendingUp,
@@ -95,7 +94,7 @@ export default function Dashboard() {
   const todayDisplayTotal = convertFromBase(todayTotal);
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="page-content min-h-screen bg-background pb-24">
       {/* ── Header ── */}
       <header className="sticky top-0 z-50 px-4 pt-4 pb-2">
         <div className="flex items-center justify-between">
@@ -328,8 +327,6 @@ export default function Dashboard() {
           )}
         </motion.div>
       </main>
-
-      <BottomNav />
     </div>
   );
 }

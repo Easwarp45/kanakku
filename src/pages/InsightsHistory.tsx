@@ -9,7 +9,6 @@ import { InsightCard, InsightWhyDrawer } from '@/components/insights';
 import { useSmartInsights } from '../hooks/useSmartInsights';
 import { filterInsightHistory, groupInsightHistoryByDate } from '@/lib/insightHistory';
 import type { Insight, InsightFilterType, InsightHistoryEntry } from '@/types/insights';
-import BottomNav from '@/components/layout/BottomNav';
 
 const FILTERS: InsightFilterType[] = ['all', 'info', 'warning', 'suggestion'];
 
@@ -55,7 +54,7 @@ export default function InsightsHistory() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20 overflow-x-hidden">
+    <div className="page-content min-h-screen bg-background pb-20 overflow-x-hidden">
       <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
         <div className="flex items-center justify-between gap-2 p-4">
           <div className="flex items-center gap-2">
@@ -171,8 +170,6 @@ export default function InsightsHistory() {
           }
         }}
       />
-
-      <BottomNav />
     </div>
   );
 }

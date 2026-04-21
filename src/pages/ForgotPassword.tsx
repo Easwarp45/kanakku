@@ -52,68 +52,72 @@ export default function ForgotPassword() {
 
   if (emailSent) {
     return (
-      <AuthLayout title="Check your email" subtitle="We've sent you a password reset link">
-        <div className="flex flex-col items-center justify-center space-y-6 pt-8">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <Mail className="h-8 w-8 text-primary" />
+      <div className="page-content">
+        <AuthLayout title="Check your email" subtitle="We've sent you a password reset link">
+          <div className="flex flex-col items-center justify-center space-y-6 pt-8">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+              <Mail className="h-8 w-8 text-primary" />
+            </div>
+            <p className="text-center text-muted-foreground">
+              Click the link in the email to reset your password. If you don't see
+              it, check your spam folder.
+            </p>
+            <Button variant="outline" asChild className="w-full">
+              <Link to="/login">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to login
+              </Link>
+            </Button>
           </div>
-          <p className="text-center text-muted-foreground">
-            Click the link in the email to reset your password. If you don't see
-            it, check your spam folder.
-          </p>
-          <Button variant="outline" asChild className="w-full">
-            <Link to="/login">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to login
-            </Link>
-          </Button>
-        </div>
-      </AuthLayout>
+        </AuthLayout>
+      </div>
     );
   }
 
   return (
-    <AuthLayout
-      title="Forgot password?"
-      subtitle="Enter your email and we'll send you a reset link"
-    >
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <Input
-                    type="email"
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+    <div className="page-content">
+      <AuthLayout
+        title="Forgot password?"
+        subtitle="Enter your email and we'll send you a reset link"
+      >
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">   
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      placeholder="you@example.com"
+                      autoComplete="email"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Send Reset Link
-          </Button>
-        </form>
-      </Form>
+            <Button type="submit" className="w-full" disabled={isLoading}>      
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}  
+              Send Reset Link
+            </Button>
+          </form>
+        </Form>
 
-      <div className="mt-8 text-center">
-        <Link
-          to="/login"
-          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to login
-        </Link>
-      </div>
-    </AuthLayout>
+        <div className="mt-8 text-center">
+          <Link
+            to="/login"
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to login
+          </Link>
+        </div>
+      </AuthLayout>
+    </div>
   );
 }

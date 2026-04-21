@@ -9,9 +9,9 @@ interface AuthLayoutProps {
 
 export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
   return (
-    <div className="flex min-h-screen flex-col bg-background safe-top safe-bottom">
+    <div className="relative flex min-h-full flex-col bg-background safe-top safe-bottom overflow-y-auto">
       {/* Glow blobs */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-24 -left-24 h-56 w-56 rounded-full bg-primary/20 blur-[80px]" />
         <div className="absolute -bottom-24 -right-24 h-56 w-56 rounded-full bg-cyan-500/15 blur-[80px]" />
       </div>

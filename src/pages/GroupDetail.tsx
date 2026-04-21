@@ -44,7 +44,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
 import { CATEGORY_CONFIG } from '@/types/expense';
 import { cn } from '@/lib/utils';
-import BottomNav from '@/components/layout/BottomNav';
 import { useContacts } from '@/hooks/useContacts';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
@@ -332,7 +331,7 @@ export default function GroupDetail() {
 
   if (loadingGroup) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="page-content min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="h-10 w-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
           <p className="text-sm text-muted-foreground">Loading group...</p>
@@ -343,7 +342,7 @@ export default function GroupDetail() {
 
   if (removed) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 px-4">
+      <div className="page-content min-h-screen bg-background flex flex-col items-center justify-center gap-4 px-4">
         <div className="h-16 w-16 rounded-2xl bg-red-500/10 flex items-center justify-center mb-4">
           <LogOut className="h-8 w-8 text-red-600" />
         </div>
@@ -357,7 +356,7 @@ export default function GroupDetail() {
   if (!loadingGroup && !group) {
     // group is null after loading = user lost access (RLS denied the row)
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+      <div className="page-content min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <p className="text-muted-foreground">Group not found or access denied</p>
         <Button onClick={() => navigate('/groups')}>Go back</Button>
       </div>
@@ -375,7 +374,7 @@ export default function GroupDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="page-content min-h-screen bg-background pb-20">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b px-4 py-3">
         <div className="flex items-center justify-between">
@@ -922,8 +921,6 @@ export default function GroupDetail() {
           )}
         </TabsContent>
       </Tabs>
-
-      <BottomNav />
     </div>
   );
 }

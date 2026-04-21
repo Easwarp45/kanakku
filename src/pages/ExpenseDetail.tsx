@@ -131,7 +131,7 @@ export default function ExpenseDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="page-content min-h-screen bg-background flex items-center justify-center">
         <p className="text-muted-foreground">Loading...</p>
       </div>
     );
@@ -139,7 +139,7 @@ export default function ExpenseDetail() {
 
   if (!expense) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+      <div className="page-content min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <p className="text-muted-foreground">Expense not found</p>
         <Button onClick={() => navigate('/expenses')}>Go back</Button>
       </div>
@@ -151,7 +151,7 @@ export default function ExpenseDetail() {
 
   if (!isEditing) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="page-content min-h-screen bg-background">
         {/* Header */}
         <header className="sticky top-0 z-10 bg-background border-b px-4 py-3">
           <div className="flex items-center justify-between">
@@ -260,7 +260,7 @@ export default function ExpenseDetail() {
 
   // Edit Mode
   return (
-    <div className="min-h-screen bg-background">
+    <div className="page-content min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background border-b px-4 py-3">
         <div className="flex items-center gap-3">

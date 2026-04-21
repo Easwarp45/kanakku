@@ -15,7 +15,6 @@ import { useExpenses } from '@/hooks/useExpenses';
 import { useGroups, useGroupBalances, useGroupMembers, useRecordSettlement } from '@/hooks/useGroups';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
-import BottomNav from '@/components/layout/BottomNav';
 import { cn } from '@/lib/utils';
 import type { SubscriptionDetection } from '@/types/financial-intelligence';
 import type { Group } from '@/types/group';
@@ -347,7 +346,7 @@ export default function FinancialIntelligence() {
 
   /* ══════════════════════════════════════════════════════ RENDER ═══ */
   return (
-    <div className="min-h-screen bg-background pb-28">
+    <div className="page-content min-h-screen bg-background pb-28">
 
       {/* ════ HEADER ════ */}
       <header className="sticky top-0 z-40 bg-background/85 backdrop-blur-xl border-b border-white/6 px-4 pt-3 pb-2">
@@ -988,8 +987,6 @@ export default function FinancialIntelligence() {
         </SectionWrap>
 
       </main>
-
-      <BottomNav />
     </div>
   );
 }

@@ -1,3 +1,62 @@
+/* ─── ROOT LAYOUT ───────────────────────────────────── */
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overscroll-behavior: none;
+  background: #0A0A0F;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ─── APP SHELL (flex container) ───────────────────── */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;  /* dynamic viewport height — handles keyboard */
+  overflow: hidden;
+  position: relative;
+}
+
+/* ─── APP MAIN (scrollable content) ────────────────── */
+.app-main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── SAFE AREA INSETS ──────────────────────────────── */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --status-bar-height: 24px;
+}
+
+/* ─── PAGE CONTENT (applies to all pages) ──────────── */
+.page-content {
+  padding-top: max(var(--safe-top), var(--status-bar-height));
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+  flex: 1;
+  display: block;
+}
+
 /* Fonts are loaded non-blocking via index.html <link> tags — no @import needed here */
 
 @tailwind base;
@@ -60,6 +119,12 @@
     --sidebar-accent-foreground: 210 40% 95%;
     --sidebar-border: 240 5% 14%;
     --sidebar-ring: 271 91% 65%;
+
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --status-bar-height: 24px;
   }
 
   /* Light mode opt-in */
@@ -100,14 +165,31 @@
     box-sizing: border-box;
   }
 
+  *, *::before, *::after {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+  }
+
   html {
     color-scheme: dark;
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overscroll-behavior: none;
+    background: #0A0A0F;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    min-height: 100dvh;
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overscroll-behavior: none;
+    background: #0A0A0F;
     /* Background gradient is rendered by body::before pseudo-element so it is
        GPU-composited and does NOT repaint on every scroll frame (P-3 fix). */
   }
@@ -125,47 +207,12 @@
     will-change: transform; /* promotes to composited layer */
   }
 
-  html,
-  body.native-app,
-  body.native-app #root {
-    height: 100%;
-    min-height: 100%;
-  }
-
-  body.native-app,
-  body.native-app * {
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  body.native-app {
-    overscroll-behavior-y: none;
-    -webkit-user-select: none;
-    user-select: none;
-    -webkit-touch-callout: none;
-    text-size-adjust: 100%;
-  }
-
-  /**
-   * Native safe-area fix:
-   * StatusBar.setOverlaysWebView(false) keeps the status bar opaque, but
-   * viewport-fit=cover (needed for edge-to-edge background) still lets the
-   * WebView frame start from y=0. Applying env(safe-area-inset-top) as a
-   * padding-top on the root shifts all content below the status bar / notch.
-   *
-   * We use padding-top (not margin) so the background colour fills the gap.
-   */
-  body.native-app #root {
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    padding-left: env(safe-area-inset-left, 0px);
-    padding-right: env(safe-area-inset-right, 0px);
-  }
-
-  body.native-app input,
-  body.native-app textarea,
-  body.native-app [contenteditable='true'] {
+  input,
+  textarea,
+  [contenteditable] {
     user-select: text;
     -webkit-user-select: text;
+    touch-action: auto;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -345,6 +392,14 @@
 }
 
 @layer utilities {
+  .page-content {
+    padding-top: max(var(--safe-top), var(--status-bar-height));
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+    flex: 1;
+    display: block;
+  }
+
   .native-scroll {
     height: 100%;
     width: 100%;

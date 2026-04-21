@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageTransition, staggerContainerVariants, staggerItemVariants, slideUpVariants } from '@/lib/animations';
 import { SkeletonCardLoader } from '@/components/ui/skeleton-loader';
-import BottomNav from '@/components/layout/BottomNav';
 import { useAnalytics, TimePeriod } from '@/hooks/useAnalytics';
 import { useSmartInsights } from '../hooks/useSmartInsights';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -101,7 +100,7 @@ export default function Analytics() {
 
   return (
     <PageTransition>
-    <div className="min-h-screen bg-background pb-20">
+    <div className="page-content min-h-screen bg-background pb-20">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
         <div className="flex items-center justify-between p-4">
@@ -598,8 +597,6 @@ export default function Analytics() {
         </div>
         <InsightsList insights={insights} isLoading={insightsLoading} />
       </div>
-
-      <BottomNav />
     </div>
     </PageTransition>
   );

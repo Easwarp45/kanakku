@@ -67,15 +67,15 @@ export default function Signup() {
   const inputClass = "bg-white/5 border-white/10 focus:border-primary/60 placeholder:text-muted-foreground/50 rounded-xl h-12";
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="page-content min-h-full bg-background flex flex-col relative">
       {/* Background blobs */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-32 -right-32 h-64 w-64 rounded-full bg-primary/20 blur-[80px]" />
         <div className="absolute -bottom-32 -left-32 h-64 w-64 rounded-full bg-accent/15 blur-[80px]" />
         <div className="absolute top-1/3 right-1/4 h-48 w-48 rounded-full bg-secondary/12 blur-[80px]" />
       </div>
 
-      <div className="relative flex flex-1 flex-col items-center justify-center px-4 sm:px-6 py-12">
+      <div className="relative flex flex-1 flex-col items-center justify-start sm:justify-center px-4 sm:px-6 py-8 sm:py-12 overflow-y-auto">
         {/* Logo */}
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}

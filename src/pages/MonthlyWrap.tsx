@@ -101,7 +101,7 @@ export default function MonthlyWrap() {
   const loading = analyticsLoading || expensesLoading || incomeLoading;
 
   return (
-    <div className="min-h-screen pb-8 bg-[radial-gradient(circle_at_20%_20%,rgba(168,85,247,0.2),transparent_35%),radial-gradient(circle_at_80%_10%,rgba(34,211,238,0.16),transparent_32%),radial-gradient(circle_at_50%_120%,rgba(244,114,182,0.12),transparent_45%),hsl(var(--background))]">
+    <div className="page-content min-h-screen pb-8 bg-[radial-gradient(circle_at_20%_20%,rgba(168,85,247,0.2),transparent_35%),radial-gradient(circle_at_80%_10%,rgba(34,211,238,0.16),transparent_32%),radial-gradient(circle_at_50%_120%,rgba(244,114,182,0.12),transparent_45%),hsl(var(--background))]">
       <header className="sticky top-0 z-20 border-b border-white/10 bg-background/65 backdrop-blur-xl px-4 py-3">
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>

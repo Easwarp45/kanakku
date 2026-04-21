@@ -14,7 +14,6 @@ import { RefreshIndicator } from '@/components/ui/refresh-indicator';
 import { SkeletonListLoader } from '@/components/ui/skeleton-loader';
 import { PageTransition } from '@/lib/animations';
 import { cn } from '@/lib/utils';
-import BottomNav from '@/components/layout/BottomNav';
 import { useCurrency } from '@/hooks/useCurrency';
 
 export default function Income() {
@@ -56,7 +55,7 @@ export default function Income() {
 
   return (
     <PageTransition>
-      <div ref={containerRef} className="min-h-screen bg-background pb-20 overflow-y-auto" style={{ transform: `translateY(${translateY * 0.5}px)` }}>
+      <div ref={containerRef} className="page-content min-h-screen bg-background pb-20 overflow-y-auto" style={{ transform: `translateY(${translateY * 0.5}px)` }}>
       {/* Refresh Indicator */}
       <RefreshIndicator translateY={translateY} isRefreshing={isRefreshing} threshold={60} />
       {/* Header */}
@@ -181,8 +180,6 @@ export default function Income() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <BottomNav />
     </div>
     </PageTransition>
   );

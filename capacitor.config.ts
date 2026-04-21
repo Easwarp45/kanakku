@@ -14,13 +14,13 @@ const config: CapacitorConfig = {
   plugins: {
     SplashScreen: {
       launchAutoHide: false,
-      launchShowDuration: 2500,
+      launchShowDuration: 0,
       backgroundColor: '#0b0b11',
+      androidSplashResourceName: 'splash',
       showSpinner: false,
       androidScaleType: 'CENTER_CROP',
-      // NOTE: splashFullScreen / splashImmersive intentionally omitted.
-      // Those flags force Android into immersive mode which hides the status bar
-      // and causes the WebView to extend behind the notch after launch.
+      splashFullScreen: true,
+      splashImmersive: true,
     },
     StatusBar: {
       style: 'DARK',
@@ -28,9 +28,11 @@ const config: CapacitorConfig = {
       overlaysWebView: false, // WebView must NOT extend under status bar
     },
     Keyboard: {
-      style: 'dark',
-      resize: 'body',
+      resize: 'ionic',
+      style: 'DARK',
       resizeOnFullScreen: true,
+      hideFormAccessoryBar: false,
+      keyboardHeight: 300,
     },
   },
 };
