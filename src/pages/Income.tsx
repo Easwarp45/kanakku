@@ -55,7 +55,7 @@ export default function Income() {
 
   return (
     <PageTransition>
-      <div ref={containerRef} className="page-content min-h-screen bg-background pb-20 overflow-y-auto" style={{ transform: `translateY(${translateY * 0.5}px)` }}>
+      <div ref={containerRef} className="page-content min-h-full bg-background pb-20" style={{ transform: `translateY(${translateY * 0.5}px)` }}>
       {/* Refresh Indicator */}
       <RefreshIndicator translateY={translateY} isRefreshing={isRefreshing} threshold={60} />
       {/* Header */}

@@ -86,7 +86,7 @@ export default function Budget() {
   const nearLimitCount = budgets?.filter(b => b.isNearLimit).length || 0;
 
   return (
-    <div className="page-content min-h-screen bg-background pb-20">
+    <div className="page-content min-h-full bg-background pb-20">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
         <div className="flex items-center justify-between p-4">
@@ -323,7 +323,7 @@ export default function Budget() {
 
                         {!isEditing && (
                           <>
-                            <div className="relative h-3 bg-muted rounded-full overflow-hidden">
+                            <div className="relative h-3 bg-muted rounded-full ">
                               <div
                                 className={`absolute inset-y-0 left-0 rounded-full transition-all ${getProgressColor(budget)}`}
                                 style={{ width: `${Math.min(budget.percentage, 100)}%` }}

@@ -28,11 +28,7 @@ const config: CapacitorConfig = {
       overlaysWebView: false, // WebView must NOT extend under status bar
     },
     Keyboard: {
-      resize: 'ionic',
-      style: 'DARK',
-      resizeOnFullScreen: true,
-      hideFormAccessoryBar: false,
-      keyboardHeight: 300,
+      resize: 'body',
     },
   },
 };

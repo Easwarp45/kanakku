@@ -94,7 +94,7 @@ export default function Dashboard() {
   const todayDisplayTotal = convertFromBase(todayTotal);
 
   return (
-    <div className="page-content min-h-screen bg-background pb-24">
+    <div className="page-content min-h-full bg-background pb-24">
       {/* ── Header ── */}
       <header className="sticky top-0 z-50 px-4 pt-4 pb-2">
         <div className="flex items-center justify-between">

@@ -51,7 +51,7 @@ const NotFound             = lazy(() => import("./pages/NotFound"));
 // ── Page loading skeleton (Suspense fallback) ────────────────────────────────
 function PageSkeleton() {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
+    <div className="min-h-full bg-background flex items-center justify-center">
       <div
         className="w-8 h-8 rounded-full border-2 border-primary/40 border-t-primary animate-spin"
         role="status"
@@ -108,7 +108,7 @@ function App() {
       {!isNative && !splashDone && (
         <SplashScreen duration={1800} onDone={() => setSplashDone(true)} />
       )}
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <AuthProvider>
             <TooltipProvider>
@@ -136,7 +136,7 @@ function AppRouterShell() {
 
   return (
     <div className="app-shell">
-      <main className="app-main">
+      <div className="app-main">
         <Suspense fallback={<PageSkeleton />}>
           <Routes>
             {/* Public routes */}
@@ -173,7 +173,7 @@ function AppRouterShell() {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
-      </main>
+      </div>
       {!hideBottomNav && <BottomNav />}
     </div>
   );

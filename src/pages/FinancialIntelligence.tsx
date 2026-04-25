@@ -346,7 +346,7 @@ export default function FinancialIntelligence() {
 
   /* ══════════════════════════════════════════════════════ RENDER ═══ */
   return (
-    <div className="page-content min-h-screen bg-background pb-28">
+    <div className="page-content min-h-full bg-background pb-28">
 
       {/* ════ HEADER ════ */}
       <header className="sticky top-0 z-40 bg-background/85 backdrop-blur-xl border-b border-white/6 px-4 pt-3 pb-2">
@@ -446,7 +446,7 @@ export default function FinancialIntelligence() {
                   const CfgIcon = cfg.icon;
                   const open    = expandedSub === sub.merchant;
                   return (
-                    <motion.div key={sub.merchant} layout className="bento-card overflow-hidden">
+                    <motion.div key={sub.merchant} layout className="bento-card ">
                       <button className="w-full text-left" onClick={() => setExpandedSub(open ? null : sub.merchant)}>
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
@@ -478,7 +478,7 @@ export default function FinancialIntelligence() {
                             animate={{ height: 'auto', opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
                             transition={{ duration: 0.22 }}
-                            className="overflow-hidden"
+                            className=""
                           >
                             <div className="pt-3 mt-3 border-t border-white/6 space-y-3 text-xs">
                               <div className="grid grid-cols-2 gap-3">
@@ -664,7 +664,7 @@ export default function FinancialIntelligence() {
                       </div>
                     </div>
 
-                    <div className="h-2.5 rounded-full bg-white/7 overflow-hidden">
+                    <div className="h-2.5 rounded-full bg-white/7 ">
                       <motion.div
                         initial={{ width: 0 }}
                         whileInView={{ width: `${pct}%` }}
@@ -872,7 +872,7 @@ export default function FinancialIntelligence() {
                   </span>
                 </div>
 
-                <div className="relative h-4 rounded-full bg-white/8 overflow-hidden">
+                <div className="relative h-4 rounded-full bg-white/8 ">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${paceScore}%` }}
@@ -899,7 +899,7 @@ export default function FinancialIntelligence() {
               {/* trajectory timeline */}
               <div className="mb-5">
                 <p className="text-[10px] text-muted-foreground mb-1.5">Trajectory to deadline</p>
-                <div className="relative h-2 rounded-full bg-white/7 overflow-hidden">
+                <div className="relative h-2 rounded-full bg-white/7 ">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${goals.progressPercent}%` }}
@@ -969,7 +969,7 @@ export default function FinancialIntelligence() {
                     </div>
                     <p className="text-xs font-bold leading-tight">{ach.title}</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{ach.description}</p>
-                    <div className="mt-2.5 h-1.5 rounded-full bg-white/7 overflow-hidden">
+                    <div className="mt-2.5 h-1.5 rounded-full bg-white/7 ">
                       <motion.div
                         className="h-full rounded-full bg-gradient-to-r from-primary to-cyan-400"
                         initial={{ width: 0 }}

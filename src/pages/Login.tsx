@@ -53,15 +53,15 @@ export default function Login() {
   }
 
   return (
-    <div className="page-content min-h-full bg-background flex flex-col relative">
+    <div className="page-content bg-background relative">
       {/* Background blobs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 ">
         <div className="absolute -top-32 -left-32 h-64 w-64 rounded-full bg-primary/20 blur-[80px]" />
         <div className="absolute -bottom-32 -right-32 h-64 w-64 rounded-full bg-secondary/15 blur-[80px]" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-96 w-96 rounded-full bg-accent/10 blur-[120px]" />
       </div>
 
-      <div className="relative flex flex-1 flex-col items-center justify-start sm:justify-center px-4 sm:px-6 py-8 sm:py-12 overflow-y-auto">
+      <div className="relative flex flex-col items-center justify-start sm:justify-center px-4 sm:px-6 py-8 sm:py-12">
         {/* Logo */}
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}

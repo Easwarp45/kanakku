@@ -92,7 +92,7 @@ export default function SettleUp() {
   };
 
   return (
-    <div className="page-content min-h-screen bg-background">
+    <div className="page-content min-h-full bg-background">
       <ConfettiBurst burstKey={confettiBurstKey} originXPercent={50} originYPercent={78} />
 
       {/* Header */}

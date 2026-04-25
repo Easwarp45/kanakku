@@ -38,7 +38,6 @@ export default function NativeAppBridge() {
 
       try {
         await Keyboard.setAccessoryBarVisible({ isVisible: false });
-        await Keyboard.setScroll({ isDisabled: false });
       } catch {
         // Ignore keyboard setup failures silently.
       }

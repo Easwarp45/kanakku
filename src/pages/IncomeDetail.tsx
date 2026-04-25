@@ -80,7 +80,7 @@ export default function IncomeDetail() {
 
   if (isLoading) {
     return (
-      <div className="page-content min-h-screen bg-background flex items-center justify-center">
+      <div className="page-content min-h-full bg-background flex items-center justify-center">
         <p className="text-muted-foreground">Loading...</p>
       </div>
     );
@@ -88,7 +88,7 @@ export default function IncomeDetail() {
 
   if (!income) {
     return (
-      <div className="page-content min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+      <div className="page-content min-h-full bg-background flex flex-col items-center justify-center gap-4">
         <p className="text-muted-foreground">Income record not found</p>
         <Button onClick={() => navigate('/income')}>Go back</Button>
       </div>
@@ -99,7 +99,7 @@ export default function IncomeDetail() {
 
   if (!isEditing) {
     return (
-      <div className="page-content min-h-screen bg-background">
+      <div className="page-content min-h-full bg-background">
         {/* Header */}
         <header className="sticky top-0 z-10 bg-background border-b px-4 py-3">
           <div className="flex items-center justify-between">
@@ -182,7 +182,7 @@ export default function IncomeDetail() {
   }
 
   return (
-    <div className="page-content min-h-screen bg-background">
+    <div className="page-content min-h-full bg-background">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background border-b px-4 py-3">
         <div className="flex items-center gap-3">
