@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
-import { ArrowLeft, Search, Filter, Trash2, Calendar, Plus } from 'lucide-react';
+import { ArrowLeft, Search, Filter, Trash2, Calendar, Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
@@ -12,9 +12,7 @@ import { useExpenses, useDeleteExpense } from '@/hooks/useExpenses';
 import { CATEGORY_CONFIG, type ExpenseCategory } from '@/types/expense';
 import { getCategoryIcon } from '@/lib/category-icons';
 import { EmptyState } from '@/components/empty-state/EmptyState';
-import { PageTransition } from '@/lib/animations';
-import { usePullToRefresh } from '@/hooks/usePullToRefresh';
-import { RefreshIndicator } from '@/components/ui/refresh-indicator';
+import { motion } from 'framer-motion';
 import { SkeletonListLoader } from '@/components/ui/skeleton-loader';
 import { cn } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -26,6 +24,16 @@ export default function Expenses() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | 'all'>('all');
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // ── Pull-to-refresh state ────────────────────────────────────────────────
+  // Attached to .app-main (real scroll container), NOT the page div.
+  // This is critical: the old code used containerRef on a non-scrolling div,
+  // which made scrollTop always 0 and caused e.preventDefault() to fire on
+  // every drag, fighting the real scroller and causing jitter.
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pullProgress, setPullProgress] = useState(0); // 0.0 – 1.0
+  const startYRef = useRef(0);
+  const THRESHOLD = 64;
 
   const now = new Date();
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -48,15 +56,49 @@ export default function Expenses() {
 
   const deleteExpense = useDeleteExpense();
 
-  // Pull-to-refresh handler
   const handleRefresh = useCallback(async () => {
-    await refetch();
+    setIsRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setIsRefreshing(false);
+    }
   }, [refetch]);
 
-  const { containerRef, isRefreshing, translateY } = usePullToRefresh({
-    threshold: 60,
-    onRefresh: handleRefresh,
-  });
+  useEffect(() => {
+    const scrollEl = document.querySelector<HTMLElement>('.app-main');
+    if (!scrollEl) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      startYRef.current = scrollEl.scrollTop === 0 ? e.touches[0].clientY : 0;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!startYRef.current) return;
+      const diff = e.touches[0].clientY - startYRef.current;
+      if (diff > 0 && scrollEl.scrollTop === 0) {
+        setPullProgress(Math.min(diff / THRESHOLD, 1));
+      } else {
+        setPullProgress(0);
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (pullProgress >= 1 && !isRefreshing) void handleRefresh();
+      setPullProgress(0);
+      startYRef.current = 0;
+    };
+
+    scrollEl.addEventListener('touchstart', onTouchStart, { passive: true });
+    scrollEl.addEventListener('touchmove', onTouchMove, { passive: true });
+    scrollEl.addEventListener('touchend', onTouchEnd, { passive: true });
+
+    return () => {
+      scrollEl.removeEventListener('touchstart', onTouchStart);
+      scrollEl.removeEventListener('touchmove', onTouchMove);
+      scrollEl.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [pullProgress, isRefreshing, handleRefresh]);
 
   const dateRangeLabel = dateRange?.from
     ? dateRange.to
@@ -83,12 +125,47 @@ export default function Expenses() {
     }
   };
 
+  const showPullIndicator = pullProgress > 0 || isRefreshing;
+
   return (
-    <PageTransition>
-      <div ref={containerRef} className="page-content min-h-full bg-background theme-page flex flex-col justify-start">
-      {/* Refresh Indicator */}
-      <RefreshIndicator translateY={translateY} isRefreshing={isRefreshing} threshold={60} />
-      {/* Header */}
+    // ── NO PageTransition / motion.div with y-transform here ────────────────
+    // Framer Motion's `y` animation sets transform:translateY() on the wrapper,
+    // which creates a new CSS stacking context. Any `position:sticky` element
+    // INSIDE an ancestor with an active transform stops being sticky — it falls
+    // back to `position:relative`. This was causing the header to scroll away.
+    // We use opacity-only fade to avoid that entirely.
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
+      className="page-content min-h-full bg-background"
+    >
+      {/* ── Pull-to-refresh indicator ────────────────────────────────────────
+          Uses max-height:0 → 48px transition so it NEVER displaces the sticky
+          header. The indicator lives in normal flow but collapses to zero height
+          when not active, meaning the header stays at exactly the same offset. */}
+      {showPullIndicator && (
+        <div
+          aria-hidden="true"
+          className="flex items-center justify-center py-3 transition-opacity duration-200"
+          style={{ opacity: isRefreshing ? 1 : pullProgress }}
+        >
+          <motion.div
+            animate={{ rotate: isRefreshing ? 360 : pullProgress * 180 }}
+            transition={isRefreshing
+              ? { repeat: Infinity, duration: 0.8, ease: 'linear' }
+              : { duration: 0.2, ease: 'easeOut' }
+            }
+          >
+            <RefreshCw className="h-5 w-5 text-primary" />
+          </motion.div>
+        </div>
+      )}
+
+      {/* ── Sticky header ────────────────────────────────────────────────────
+          z-20 keeps it above all page content.
+          bg-background/95 + backdrop-blur ensures blurred scroll-through.
+          No transform on any ancestor → sticky works correctly.             */}
       <header className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 border-b px-4 py-3">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
@@ -98,7 +175,7 @@ export default function Expenses() {
         </div>
       </header>
 
-      {/* Filters */}
+      {/* ── Filters ──────────────────────────────────────────────────────── */}
       <div className="px-4 pb-4 pt-3 space-y-3 border-b">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -153,17 +230,19 @@ export default function Expenses() {
         </div>
       </div>
 
-      {/* Summary */}
+      {/* ── Summary ──────────────────────────────────────────────────────── */}
       <div className="p-4 border-b bg-muted/30">
         <div className="flex justify-between items-center">
           <span className="text-sm text-muted-foreground">
             {dateRange?.from ? 'Total for selected range' : 'Total (all time)'}
           </span>
-          <div className="text-xl font-bold">{formatCurrency(totalAmount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          <div className="text-xl font-bold">
+            {formatCurrency(totalAmount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
         </div>
       </div>
 
-      {/* Expense List */}
+      {/* ── Expense List ─────────────────────────────────────────────────── */}
       <div className="divide-y">
         {isLoading ? (
           <div className="p-4">
@@ -218,7 +297,7 @@ export default function Expenses() {
         )}
       </div>
 
-      {/* Delete Confirmation */}
+      {/* ── Delete Confirmation ───────────────────────────────────────────── */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -235,7 +314,6 @@ export default function Expenses() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      </div>
-    </PageTransition>
+    </motion.div>
   );
 }

@@ -29,7 +29,7 @@ import {
 
 /* ─────────────────── SHARED UI ATOMS ─────────────────── */
 function Skel({ className }: { className?: string }) {
-  return <div className={cn('rounded-xl bg-white/5 animate-pulse', className)} />;
+  return <div className={cn('rounded-xl bg-muted animate-pulse', className)} />;
 }
 
 function SectionWrap({ id, children }: { id: string; children: React.ReactNode }) {
@@ -50,7 +50,7 @@ function SectionWrap({ id, children }: { id: string; children: React.ReactNode }
 function SHead({ icon: Icon, color, title, sub }: { icon: React.ElementType; color: string; title: string; sub?: string }) {
   return (
     <div className="flex items-center gap-3 mb-4">
-      <div className="h-9 w-9 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center shrink-0">
+      <div className="h-9 w-9 rounded-xl border border-border bg-muted flex items-center justify-center shrink-0">
         <Icon className={cn('h-4.5 w-4.5', color)} />
       </div>
       <div>
@@ -169,7 +169,7 @@ function SettlementPanel({ group, currentUserId, fmt }: {
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">All balances</p>
           <div className="space-y-1.5">
             {balances.map(b => (
-              <div key={b.user_id} className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0">
+              <div key={b.user_id} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
                 <p className="text-xs font-medium">{b.display_name}{b.user_id === currentUserId ? ' (you)' : ''}</p>
                 <p className={cn('font-display font-bold text-xs', b.balance >= 0 ? 'text-emerald-400' : 'text-red-400')}>
                   {b.balance >= 0 ? '+' : ''}{fmt(b.balance)}
@@ -189,7 +189,7 @@ function SettlementPanel({ group, currentUserId, fmt }: {
 
       <button
         onClick={() => navigate(`/groups/${group.id}`)}
-        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-white/8 text-xs font-medium hover:bg-white/8 transition-colors"
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-muted border border-border text-xs font-medium hover:bg-muted/80 transition-colors"
       >
         <ArrowRight className="h-3.5 w-3.5" />
         Open Group
@@ -213,76 +213,96 @@ export default function FinancialIntelligence() {
   const [sortDesc,      setSortDesc]      = useState(true);
   const [expandedSub,   setExpandedSub]   = useState<string | null>(null);
 
-  /* goal editor */
-  const [goalTarget,   setGoalTarget]   = useState(defaultGoalState.target);
-  const [goalSaved,    setGoalSaved]    = useState(defaultGoalState.saved);
-  const [goalDeadline, setGoalDeadline] = useState(defaultGoalState.deadline);
-  const [goalSaveError, setGoalSaveError] = useState<string | null>(null);
-  const hasHydratedGoalsRef = useRef(false);
+  /* ── goal editor ──────────────────────────────────────────────────────────
+     goalTargetStr / goalSavedStr hold the raw input string so the user can
+     freely clear and retype numbers without the field snapping back to 1.
+     Numeric values are derived when passed to the engine / save call.
+  ───────────────────────────────────────────────────────────────────────── */
+  const [goalTargetStr,  setGoalTargetStr]  = useState<string>(String(defaultGoalState.target));
+  const [goalSavedStr,   setGoalSavedStr]   = useState<string>(String(defaultGoalState.saved));
+  const [goalDeadline,   setGoalDeadline]   = useState<string>(defaultGoalState.deadline);
+  const [goalSaveError,  setGoalSaveError]  = useState<string | null>(null);
+  const [everSaved,      setEverSaved]      = useState(false);
+
+  // Track which DB record id we've hydrated so we only hydrate once per record
+  const hydratedRecordIdRef  = useRef<string | null | 'none'>('none');
   const lastPersistedGoalRef = useRef('');
+  const isSavingRef          = useRef(false); // don't re-hydrate while a save is in-flight
 
   const { data: savedGoal, isLoading: goalsLoading } = useFinancialGoals();
   const upsertGoal = useUpsertFinancialGoals();
+  // Stable ref so the auto-save effect doesn't re-run when mutation object changes reference
+  const mutateGoalRef = useRef(upsertGoal.mutateAsync);
+  useEffect(() => { mutateGoalRef.current = upsertGoal.mutateAsync; });
 
+  // Derived numeric values (safe, never NaN)
+  const goalTarget  = Math.max(1, parseFloat(goalTargetStr)  || defaultGoalState.target);
+  const goalSaved   = Math.max(0, parseFloat(goalSavedStr)   || 0);
+
+  /* Hydrate local state from DB record whenever the record itself changes.
+     Skip hydration while a save is in-flight to avoid clobbering user edits. */
   useEffect(() => {
-    if (goalsLoading || hasHydratedGoalsRef.current) {
-      return;
-    }
+    if (goalsLoading || isSavingRef.current) return;
+
+    const recordId = savedGoal?.id ?? null;
+    if (hydratedRecordIdRef.current === recordId) return;
+    hydratedRecordIdRef.current = recordId;
 
     if (savedGoal) {
-      const nextTarget = Number(savedGoal.target_amount) || defaultGoalState.target;
-      const nextSaved = Number(savedGoal.current_saved) || 0;
+      const nextTarget   = Math.max(1, Number(savedGoal.target_amount)  || defaultGoalState.target);
+      const nextSaved    = Math.max(0, Number(savedGoal.current_saved)  || 0);
       const nextDeadline = savedGoal.deadline || defaultGoalState.deadline;
 
-      setGoalTarget(nextTarget);
-      setGoalSaved(nextSaved);
+      setGoalTargetStr(String(nextTarget));
+      setGoalSavedStr(String(nextSaved));
       setGoalDeadline(nextDeadline);
       lastPersistedGoalRef.current = `${nextTarget}|${nextSaved}|${nextDeadline}`;
+      setEverSaved(true);
     } else {
-      lastPersistedGoalRef.current = `${defaultGoalState.target}|${defaultGoalState.saved}|${defaultGoalState.deadline}`;
+      // No goal in DB yet — keep defaults, empty fingerprint so first edit triggers save
+      lastPersistedGoalRef.current = '';
     }
-
-    hasHydratedGoalsRef.current = true;
   }, [goalsLoading, savedGoal, defaultGoalState]);
 
+  /* Auto-save: debounced 700 ms after any goal field change */
   useEffect(() => {
-    if (!user?.id || !hasHydratedGoalsRef.current || !goalDeadline) {
-      return;
-    }
+    if (!user?.id || goalsLoading || !goalDeadline) return;
 
-    const sanitizedTarget = Math.max(1, Number.isFinite(goalTarget) ? goalTarget : 1);
-    const sanitizedSaved = Math.max(0, Number.isFinite(goalSaved) ? goalSaved : 0);
-    const goalFingerprint = `${sanitizedTarget}|${sanitizedSaved}|${goalDeadline}`;
+    const sanitizedTarget = goalTarget;
+    const sanitizedSaved  = goalSaved;
+    const fingerprint     = `${sanitizedTarget}|${sanitizedSaved}|${goalDeadline}`;
 
-    if (goalFingerprint === lastPersistedGoalRef.current) {
-      return;
-    }
+    if (fingerprint === lastPersistedGoalRef.current) return;
 
-    const timeout = window.setTimeout(() => {
+    const timeout = window.setTimeout(async () => {
       setGoalSaveError(null);
-
-      void upsertGoal
-        .mutateAsync({
+      isSavingRef.current = true;
+      try {
+        await mutateGoalRef.current({
           targetAmount: sanitizedTarget,
           currentSaved: sanitizedSaved,
           deadline: goalDeadline,
-        })
-        .then(() => {
-          lastPersistedGoalRef.current = goalFingerprint;
-        })
-        .catch((error: unknown) => {
-          const message = error instanceof Error ? error.message : 'Failed to save goals';
-          setGoalSaveError(message);
         });
+        lastPersistedGoalRef.current = fingerprint;
+        setEverSaved(true);
+        // Allow hydration again for future page revisits (new record id may have arrived)
+        // but don't reset hydratedRecordIdRef so we don't overwrite current edit
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setGoalSaveError(msg);
+      } finally {
+        isSavingRef.current = false;
+      }
     }, 700);
 
     return () => window.clearTimeout(timeout);
-  }, [goalTarget, goalSaved, goalDeadline, user?.id, upsertGoal]);
+  }, [goalTargetStr, goalSavedStr, goalDeadline, user?.id, goalsLoading]);
 
   /* ── data hooks ── */
   const { subscriptions, goals, gamification, isLoading: fiLoading } = useFinancialIntelligence({
     goals: { targetAmount: goalTarget, currentSaved: goalSaved, deadline: `${goalDeadline}T00:00:00` },
   });
+
 
   /* raw expenses for heatmap + time dist (all time, no filter) */
   const { data: rawExpenses = [], isLoading: expLoading } = useExpenses();
@@ -349,11 +369,11 @@ export default function FinancialIntelligence() {
     <div className="page-content min-h-full bg-background">
 
       {/* ════ HEADER ════ */}
-      <header className="sticky top-0 z-40 bg-background/85 backdrop-blur-xl border-b border-white/6 px-4 pt-3 pb-2">
+      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border px-4 pt-3 pb-2">
         <div className="flex items-center gap-3 mb-3">
           <button
             onClick={() => navigate(-1)}
-            className="h-9 w-9 rounded-xl bg-white/5 border border-white/8 flex items-center justify-center hover:bg-white/10 transition-colors"
+            className="h-9 w-9 rounded-xl bg-muted border border-border flex items-center justify-center hover:bg-muted/80 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
@@ -380,7 +400,7 @@ export default function FinancialIntelligence() {
                   'shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-200',
                   active
                     ? 'bg-primary/20 border-primary/40 text-primary'
-                    : 'bg-white/4 border-white/8 text-muted-foreground hover:bg-white/8 hover:text-foreground',
+                    : 'bg-muted border-border text-muted-foreground hover:bg-muted/80 hover:text-foreground',
                 )}
               >
                 <Icon className={cn('h-3 w-3', active ? 'text-primary' : color)} />
@@ -405,7 +425,7 @@ export default function FinancialIntelligence() {
           />
 
           {/* info banner */}
-          <div className="flex items-start gap-2 p-3 mb-3 rounded-xl bg-white/4 border border-white/8 text-xs">
+          <div className="flex items-start gap-2 p-3 mb-3 rounded-xl bg-muted/50 border border-border text-xs">
             <Info className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
             <p className="text-muted-foreground">
               Detected by finding the same merchant charged at <strong className="text-foreground">~monthly intervals</strong> across your last 5 months of expenses.
@@ -480,7 +500,7 @@ export default function FinancialIntelligence() {
                             transition={{ duration: 0.22 }}
                             className=""
                           >
-                            <div className="pt-3 mt-3 border-t border-white/6 space-y-3 text-xs">
+                            <div className="pt-3 mt-3 border-t border-border space-y-3 text-xs">
                               <div className="grid grid-cols-2 gap-3">
                                 <div>
                                   <p className="text-muted-foreground">Last charge</p>
@@ -539,7 +559,7 @@ export default function FinancialIntelligence() {
               {/* DOW labels */}
               <div className="flex gap-1 mb-1 pl-[18px]">
                 {['S','M','T','W','T','F','S'].map((d, i) => (
-                  <div key={i} className="flex-1 text-center text-[8px] text-muted-foreground">{d}</div>
+                  <div key={i} className="flex-1 text-center text-[8px] text-foreground/60">{d}</div>
                 ))}
               </div>
 
@@ -554,7 +574,7 @@ export default function FinancialIntelligence() {
                     return (
                       <div key={wi} className="h-[22px] flex items-center">
                         {showLabel && (
-                          <span className="text-[7px] text-muted-foreground leading-none">{format(parseISO(firstDay.date), 'MMM')}</span>
+                          <span className="text-[7px] text-foreground/60 leading-none">{format(parseISO(firstDay.date), 'MMM')}</span>
                         )}
                       </div>
                     );
@@ -570,14 +590,14 @@ export default function FinancialIntelligence() {
                       return (
                         <div key={wi} className="relative group">
                           <div
-                            className="h-[22px] rounded-sm border border-white/5 transition-all cursor-default"
-                            style={{ backgroundColor: `rgba(168,85,247,${cell?.amount ? Math.max(0.07, intensity * 0.95) : 0.04})` }}
+                            className="h-[22px] rounded-sm border border-border/40 transition-all cursor-default"
+                            style={{ backgroundColor: `rgba(168,85,247,${cell?.amount ? Math.max(0.15, intensity * 0.95) : 0.07})` }}
                           />
                           {cell?.amount ? (
                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:flex z-10 pointer-events-none">
-                              <div className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1 text-[10px] whitespace-nowrap shadow-xl">
+                              <div className="bg-card border border-border rounded-lg px-2 py-1 text-[10px] whitespace-nowrap shadow-xl">
                                 <span className="font-bold text-foreground">{fmt(cell.amount)}</span>
-                                <span className="text-muted-foreground ml-1">{cell.label}</span>
+                                <span className="text-foreground/60 ml-1">{cell.label}</span>
                               </div>
                             </div>
                           ) : null}
@@ -590,16 +610,16 @@ export default function FinancialIntelligence() {
 
               {/* legend */}
               <div className="flex items-center gap-2 mt-3">
-                <span className="text-[9px] text-muted-foreground">Less</span>
-                {[0.06, 0.25, 0.5, 0.75, 0.95].map(o => (
+                <span className="text-[9px] text-foreground/60">Less</span>
+                {[0.15, 0.35, 0.55, 0.75, 0.95].map(o => (
                   <div key={o} className="h-3 w-3 rounded-sm" style={{ backgroundColor: `rgba(168,85,247,${o})` }} />
                 ))}
-                <span className="text-[9px] text-muted-foreground">More</span>
+                <span className="text-[9px] text-foreground/60">More</span>
               </div>
 
               {/* day-of-week insight */}
               {rawExpenses.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-white/6">
+                <div className="mt-3 pt-3 border-t border-border">
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-2">Spending by day of week</p>
                   <div className="flex gap-1 items-end h-10">
                     {dowDist.map((d, i) => {
@@ -664,7 +684,7 @@ export default function FinancialIntelligence() {
                       </div>
                     </div>
 
-                    <div className="h-2.5 rounded-full bg-white/7 ">
+                    <div className="h-2.5 rounded-full bg-muted">
                       <motion.div
                         initial={{ width: 0 }}
                         whileInView={{ width: `${pct}%` }}
@@ -700,10 +720,10 @@ export default function FinancialIntelligence() {
             sub="Minimum transfers to clear all group debts"
           />
 
-          <div className="flex items-start gap-2 p-3 mb-3 rounded-xl bg-amber-500/8 border border-amber-500/20 text-xs">
-            <Zap className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
-            <p className="text-amber-200/80">
-              Shows the <strong className="text-amber-200">fewest possible payments</strong> needed to clear every debt in each group. Tap <em>Settle</em> to record a payment instantly.
+          <div className="flex items-start gap-2 p-3 mb-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs">
+            <Zap className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+            <p className="text-amber-700 dark:text-amber-200/80">
+              Shows the <strong className="text-amber-800 dark:text-amber-200">fewest possible payments</strong> needed to clear every debt in each group. Tap <em>Settle</em> to record a payment instantly.
             </p>
           </div>
 
@@ -758,34 +778,48 @@ export default function FinancialIntelligence() {
                     ? 'text-red-400'
                     : upsertGoal.isPending || goalsLoading
                     ? 'text-amber-400'
-                    : 'text-emerald-400'
+                    : everSaved
+                    ? 'text-emerald-400'
+                    : 'text-muted-foreground'
                 )}
               >
                 {goalSaveError
-                  ? 'Save failed'
+                  ? (goalSaveError.length > 40 ? goalSaveError.slice(0, 40) + '…' : goalSaveError)
                   : upsertGoal.isPending || goalsLoading
                   ? 'Saving...'
-                  : 'Auto-saved'}
+                  : everSaved
+                  ? 'Auto-saved ✓'
+                  : 'Not saved yet'}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
-                <label className="text-[10px] text-muted-foreground mb-1 block">Target (₹)</label>
+                <label className="text-[10px] text-muted-foreground mb-1 block">Target</label>
                 <input
                   type="number"
-                  value={goalTarget}
-                  onChange={e => setGoalTarget(Math.max(1, Number(e.target.value) || 1))}
-                  className="w-full h-9 px-3 rounded-xl bg-white/5 border border-white/10 text-sm focus:border-primary/50 focus:outline-none font-display font-bold"
+                  inputMode="numeric"
+                  value={goalTargetStr}
+                  onChange={e => setGoalTargetStr(e.target.value)}
+                  onBlur={e => {
+                    const v = parseFloat(e.target.value);
+                    if (!v || v < 1) setGoalTargetStr('1');
+                  }}
+                  className="w-full h-9 px-3 rounded-xl bg-muted border border-input text-sm focus:border-primary/50 focus:outline-none font-display font-bold"
                   min={1}
                 />
               </div>
               <div>
-                <label className="text-[10px] text-muted-foreground mb-1 block">Saved (₹)</label>
+                <label className="text-[10px] text-muted-foreground mb-1 block">Already saved</label>
                 <input
                   type="number"
-                  value={goalSaved}
-                  onChange={e => setGoalSaved(Math.max(0, Number(e.target.value) || 0))}
-                  className="w-full h-9 px-3 rounded-xl bg-white/5 border border-white/10 text-sm focus:border-primary/50 focus:outline-none font-display font-bold"
+                  inputMode="numeric"
+                  value={goalSavedStr}
+                  onChange={e => setGoalSavedStr(e.target.value)}
+                  onBlur={e => {
+                    const v = parseFloat(e.target.value);
+                    if (isNaN(v) || v < 0) setGoalSavedStr('0');
+                  }}
+                  className="w-full h-9 px-3 rounded-xl bg-muted border border-input text-sm focus:border-primary/50 focus:outline-none font-display font-bold"
                   min={0}
                 />
               </div>
@@ -796,7 +830,7 @@ export default function FinancialIntelligence() {
                 type="date"
                 value={goalDeadline}
                 onChange={e => setGoalDeadline(e.target.value)}
-                className="w-full h-9 px-3 rounded-xl bg-white/5 border border-white/10 text-sm focus:border-primary/50 focus:outline-none"
+                className="w-full h-9 px-3 rounded-xl bg-muted border border-input text-sm focus:border-primary/50 focus:outline-none"
               />
             </div>
           </div>
@@ -872,7 +906,7 @@ export default function FinancialIntelligence() {
                   </span>
                 </div>
 
-                <div className="relative h-4 rounded-full bg-white/8 ">
+                <div className="relative h-4 rounded-full bg-muted">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${paceScore}%` }}
@@ -896,15 +930,33 @@ export default function FinancialIntelligence() {
                 </div>
               </div>
 
-              {/* trajectory timeline */}
+              {/* trajectory timeline — actual vs expected */}
               <div className="mb-5">
-                <p className="text-[10px] text-muted-foreground mb-1.5">Trajectory to deadline</p>
-                <div className="relative h-2 rounded-full bg-white/7 ">
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-[10px] text-muted-foreground">Trajectory to deadline</p>
+                  <div className="flex items-center gap-3 text-[9px]">
+                    <span className="flex items-center gap-1">
+                      <span className="inline-block h-2 w-2 rounded-full bg-muted-foreground/40" />
+                      Expected
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="inline-block h-2 w-2 rounded-full bg-primary" />
+                      Actual
+                    </span>
+                  </div>
+                </div>
+                {/* Expected progress bar (background) */}
+                <div className="relative h-2 rounded-full bg-muted">
+                  <div
+                    className="absolute top-0 left-0 h-full rounded-full bg-muted-foreground/25"
+                    style={{ width: `${goals.expectedProgressPercent ?? goals.progressPercent}%` }}
+                  />
+                  {/* Actual progress bar (foreground) */}
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${goals.progressPercent}%` }}
                     transition={{ duration: 1.2, ease: 'easeOut', delay: 0.3 }}
-                    className="h-full rounded-full bg-gradient-to-r from-primary via-cyan-400 to-emerald-400"
+                    className="absolute top-0 left-0 h-full rounded-full bg-gradient-to-r from-primary via-cyan-400 to-emerald-400"
                   />
                 </div>
                 <div className="flex justify-between text-[9px] text-muted-foreground mt-1">
@@ -914,7 +966,7 @@ export default function FinancialIntelligence() {
               </div>
 
               {/* AI message */}
-              <div className={cn('flex items-start gap-2.5 p-3.5 rounded-xl border border-white/10 bg-white/5 text-xs')}>
+              <div className={cn('flex items-start gap-2.5 p-3.5 rounded-xl border border-border bg-muted text-xs')}>
                 <Brain className={cn('h-3.5 w-3.5 mt-0.5 shrink-0', goalCfg.color)} />
                 <p className="text-foreground/90 leading-relaxed">{goals.message}</p>
               </div>
@@ -969,7 +1021,7 @@ export default function FinancialIntelligence() {
                     </div>
                     <p className="text-xs font-bold leading-tight">{ach.title}</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{ach.description}</p>
-                    <div className="mt-2.5 h-1.5 rounded-full bg-white/7 ">
+                    <div className="mt-2.5 h-1.5 rounded-full bg-muted">
                       <motion.div
                         className="h-full rounded-full bg-gradient-to-r from-primary to-cyan-400"
                         initial={{ width: 0 }}

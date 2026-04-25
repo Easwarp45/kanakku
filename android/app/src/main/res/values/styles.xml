@@ -19,6 +19,8 @@
         <item name="android:windowTranslucentStatus">false</item>
         <item name="android:windowTranslucentNavigation">false</item>
         <item name="android:statusBarColor">#0b0b11</item>
+        <!-- Suppress system text-selection handles in WebView -->
+        <item name="android:textIsSelectable">false</item>
     </style>
 
 

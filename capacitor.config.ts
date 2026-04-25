@@ -19,8 +19,6 @@ const config: CapacitorConfig = {
       androidSplashResourceName: 'splash',
       showSpinner: false,
       androidScaleType: 'CENTER_CROP',
-      splashFullScreen: true,
-      splashImmersive: true,
     },
     StatusBar: {
       style: 'DARK',

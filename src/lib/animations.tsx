@@ -1,15 +1,19 @@
 import { ReactNode } from 'react';
 import { motion } from 'framer-motion';
 
-// Page transition animation
+// Page transition animation.
+// IMPORTANT: We intentionally do NOT animate `y` (translateY) here.
+// Any `transform` on a parent creates a new CSS stacking context, which
+// breaks `position: sticky` on all descendant elements. Opacity-only fade
+// keeps sticky headers working correctly on every page.
 export const pageVariants = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -20 },
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit:    { opacity: 0 },
 };
 
 export const pageTransition = {
-  duration: 0.3,
+  duration: 0.2,
   ease: 'easeOut',
 };
 

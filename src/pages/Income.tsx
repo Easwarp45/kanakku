@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ArrowLeft, Plus, Trash2, RefreshCw } from 'lucide-react';
@@ -9,10 +9,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { useIncome, useDeleteIncome } from '@/hooks/useIncome';
 import { INCOME_SOURCE_CONFIG, type IncomeSource } from '@/types/income';
-import { usePullToRefresh } from '@/hooks/usePullToRefresh';
-import { RefreshIndicator } from '@/components/ui/refresh-indicator';
+import { motion } from 'framer-motion';
 import { SkeletonListLoader } from '@/components/ui/skeleton-loader';
-import { PageTransition } from '@/lib/animations';
 import { cn } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
 
@@ -34,15 +32,55 @@ export default function Income() {
 
   const deleteIncome = useDeleteIncome();
 
-  // Pull-to-refresh handler
+  // ── Pull-to-refresh (attached to real scroll parent .app-main) ────────────
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pullProgress, setPullProgress] = useState(0);
+  const startYRef = useRef(0);
+  const THRESHOLD = 64;
+
   const handleRefresh = useCallback(async () => {
-    await refetch();
+    setIsRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setIsRefreshing(false);
+    }
   }, [refetch]);
 
-  const { containerRef, isRefreshing, translateY } = usePullToRefresh({
-    threshold: 60,
-    onRefresh: handleRefresh,
-  });
+  useEffect(() => {
+    const scrollEl = document.querySelector<HTMLElement>('.app-main');
+    if (!scrollEl) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      startYRef.current = scrollEl.scrollTop === 0 ? e.touches[0].clientY : 0;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!startYRef.current) return;
+      const diff = e.touches[0].clientY - startYRef.current;
+      if (diff > 0 && scrollEl.scrollTop === 0) {
+        setPullProgress(Math.min(diff / THRESHOLD, 1));
+      } else {
+        setPullProgress(0);
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (pullProgress >= 1 && !isRefreshing) void handleRefresh();
+      setPullProgress(0);
+      startYRef.current = 0;
+    };
+
+    scrollEl.addEventListener('touchstart', onTouchStart, { passive: true });
+    scrollEl.addEventListener('touchmove', onTouchMove, { passive: true });
+    scrollEl.addEventListener('touchend', onTouchEnd, { passive: true });
+
+    return () => {
+      scrollEl.removeEventListener('touchstart', onTouchStart);
+      scrollEl.removeEventListener('touchmove', onTouchMove);
+      scrollEl.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [pullProgress, isRefreshing, handleRefresh]);
 
   const totalIncome = incomeRecords.reduce((sum, item) => sum + item.amount, 0);
 
@@ -53,12 +91,36 @@ export default function Income() {
     }
   };
 
+  const showPullIndicator = pullProgress > 0 || isRefreshing;
+
   return (
-    <PageTransition>
-      <div ref={containerRef} className="page-content min-h-full bg-background theme-page flex flex-col justify-start">
-      {/* Refresh Indicator */}
-      <RefreshIndicator translateY={translateY} isRefreshing={isRefreshing} threshold={60} />
-      {/* Header */}
+    // Opacity-only fade — no y-transform which would break position:sticky
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
+      className="page-content min-h-full bg-background"
+    >
+      {/* Pull-to-refresh indicator — lives in normal flow but only shows when active */}
+      {showPullIndicator && (
+        <div
+          aria-hidden="true"
+          className="flex items-center justify-center py-3 transition-opacity duration-200"
+          style={{ opacity: isRefreshing ? 1 : pullProgress }}
+        >
+          <motion.div
+            animate={{ rotate: isRefreshing ? 360 : pullProgress * 180 }}
+            transition={isRefreshing
+              ? { repeat: Infinity, duration: 0.8, ease: 'linear' }
+              : { duration: 0.2, ease: 'easeOut' }
+            }
+          >
+            <RefreshCw className="h-5 w-5 text-primary" />
+          </motion.div>
+        </div>
+      )}
+
+      {/* Sticky header — z-20, no transform ancestor, so sticky works correctly */}
       <header className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 border-b px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -180,7 +242,6 @@ export default function Income() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
-    </PageTransition>
+    </motion.div>
   );
 }

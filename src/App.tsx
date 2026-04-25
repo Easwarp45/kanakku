@@ -66,8 +66,8 @@ function PageSkeleton() {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 2, // 2 minutes default
-      gcTime: 1000 * 60 * 60,   // 1 hour cache
+      staleTime: 1000 * 30,        // 30 s — keeps data current after realtime invalidation
+      gcTime: 1000 * 60 * 60,      // 1 hour cache
       retry: (failureCount, error) => {
         if (!navigator.onLine) return false;
         const status = (error as any)?.status;
@@ -103,6 +103,53 @@ function App() {
       window.removeEventListener('native:app-foreground', handleForeground);
     };
   }, [isNative]);
+
+  /* ── Native-feel: disable text selection & long-press copy menu ──────────
+     CSS (user-select: none) handles the primary case, but Android WebView
+     can still show the system copy/share popup on long-press if the user
+     manages to initiate a selection before CSS is parsed. These JS guards
+     form a second & third layer of defence.
+  ─────────────────────────────────────────────────────────────────────── */
+  useEffect(() => {
+    /** Cancel text selection before it starts, unless target is a form field */
+    const onSelectStart = (e: Event) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
+        return; // allow selection inside inputs
+      }
+      e.preventDefault();
+    };
+
+    /** Suppress the Android long-press context menu (Copy / Share / Select All) */
+    const onContextMenu = (e: Event) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
+        return; // allow the input context menu (Paste, Select All, etc.)
+      }
+      e.preventDefault();
+    };
+
+    /** Clear any selection the WebView committed before JS could intercept it */
+    const onTouchStart = (e: TouchEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
+        return;
+      }
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) sel.removeAllRanges();
+    };
+
+    document.addEventListener('selectstart',  onSelectStart,  { passive: false });
+    document.addEventListener('contextmenu',  onContextMenu,  { passive: false });
+    document.addEventListener('touchstart',   onTouchStart,   { passive: true  });
+
+    return () => {
+      document.removeEventListener('selectstart', onSelectStart);
+      document.removeEventListener('contextmenu', onContextMenu);
+      document.removeEventListener('touchstart',  onTouchStart);
+    };
+  }, []);
+
 
   return (
     <QueryClientProvider client={queryClient}>

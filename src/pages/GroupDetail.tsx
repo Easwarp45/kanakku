@@ -538,11 +538,11 @@ export default function GroupDetail() {
         {/* Balances Tab */}
         <TabsContent value="balances" className="p-4 space-y-4">
           {simplifiedDebts.length === 0 ? (
-            <Card className="bg-green-50 border-green-200">
+            <Card className="bg-green-500/10 border-green-500/30">
               <CardContent className="py-10 text-center">
                 <p className="text-4xl mb-2">✨</p>
-                <p className="font-bold text-green-900">All Settled Up!</p>
-                <p className="text-sm text-green-700 mt-1">Everyone has paid their share perfectly</p>
+                <p className="font-bold text-green-400">All Settled Up!</p>
+                <p className="text-sm text-green-400/70 mt-1">Everyone has paid their share perfectly</p>
               </CardContent>
             </Card>
           ) : (
@@ -603,10 +603,10 @@ export default function GroupDetail() {
                   </Card>
                 );
               })}
-              <Card className="bg-blue-50 border-blue-200">
+              <Card className="bg-blue-500/10 border-blue-500/30">
                 <CardContent className="p-4">
-                  <p className="text-xs text-blue-900 font-medium">💡 Tip:</p>
-                  <p className="text-xs text-blue-800 mt-1">Use UPI, bank transfer, or Paytm to settle payments. Mark as settled once paid.</p>
+                  <p className="text-xs text-blue-400 font-medium">💡 Tip:</p>
+                  <p className="text-xs text-blue-400/70 mt-1">Use UPI, bank transfer, or Paytm to settle payments. Mark as settled once paid.</p>
                 </CardContent>
               </Card>
             </>
@@ -632,7 +632,7 @@ export default function GroupDetail() {
                 <div className="text-right">
                   <p className={cn(
                     'text-[10px] font-medium',
-                    balance.balance >= 0 ? 'text-green-700' : 'text-red-700'
+                    balance.balance >= 0 ? 'text-green-400' : 'text-red-400'
                   )}>
                     {balance.balance >= 0 ? 'Gets back' : 'Owes'}
                   </p>
@@ -844,9 +844,9 @@ export default function GroupDetail() {
         </TabsContent>
 
         {/* Chat Tab */}
-        <TabsContent value="chat" className="flex flex-col" style={{ height: 'calc(100% - 340px)' }}>
+        <TabsContent value="chat" className="flex flex-col min-h-0 flex-1">
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="flex-1 min-h-0 p-4 space-y-3">
             {chats.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center py-12">
                 <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mb-4">

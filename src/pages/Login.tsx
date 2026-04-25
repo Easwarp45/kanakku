@@ -53,7 +53,7 @@ export default function Login() {
   }
 
   return (
-    <div className="page-content min-h-full bg-background theme-page flex flex-col relative">
+    <div className="page-content min-h-full bg-background relative">
       {/* Background blobs */}
       <div className="pointer-events-none absolute inset-0 ">
         <div className="absolute -top-32 -left-32 h-64 w-64 rounded-full bg-primary/20 blur-[80px]" />

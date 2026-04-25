@@ -16,18 +16,22 @@ export function useRealtimeSync() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'expenses', filter: `user_id=eq.${user.id}` },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['expenses'] });
-          queryClient.invalidateQueries({ queryKey: ['expense'] });
-          queryClient.invalidateQueries({ queryKey: ['analytics'] });
-          queryClient.invalidateQueries({ queryKey: ['budgets-with-spent'] });
+          void queryClient.invalidateQueries({ queryKey: ['expenses'] });
+          void queryClient.invalidateQueries({ queryKey: ['expense'] });
+          void queryClient.invalidateQueries({ queryKey: ['analytics'] });
+          void queryClient.invalidateQueries({ queryKey: ['budgets'] });
+          void queryClient.invalidateQueries({ queryKey: ['budgets-with-spent'] });
+          void queryClient.invalidateQueries({ queryKey: ['financial-goals'] });
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'income', filter: `user_id=eq.${user.id}` },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['income'] });
-          queryClient.invalidateQueries({ queryKey: ['analytics'] });
+          void queryClient.invalidateQueries({ queryKey: ['income'] });
+          void queryClient.invalidateQueries({ queryKey: ['analytics'] });
+          void queryClient.invalidateQueries({ queryKey: ['budgets'] });
+          void queryClient.invalidateQueries({ queryKey: ['budgets-with-spent'] });
         }
       )
       .on(

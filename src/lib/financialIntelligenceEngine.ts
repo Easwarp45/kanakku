@@ -359,60 +359,98 @@ export function simplifyGroupDebts(groupBalances: GroupBalancesInput) {
 }
 
 export function analyzeGoalSavings(goals: FinancialGoalsInput, now: Date) {
-  const remainingAmount = Math.max(0, goals.targetAmount - goals.currentSaved);
-  const deadline = parseISO(goals.deadline);
-  const daysLeft = differenceInCalendarDays(deadline, now);
+  const targetAmount    = Math.max(1, goals.targetAmount);
+  const currentSaved    = Math.max(0, goals.currentSaved);
+  const remainingAmount = Math.max(0, targetAmount - currentSaved);
+  const deadline        = parseISO(goals.deadline);
+  const daysLeft        = differenceInCalendarDays(deadline, now);
 
-  const progressPercent = goals.targetAmount > 0
-    ? clamp((goals.currentSaved / goals.targetAmount) * 100, 0, 100)
-    : 0;
+  const progressPercent = clamp((currentSaved / targetAmount) * 100, 0, 100);
 
+  /* ── Completed ── */
   if (remainingAmount <= 0) {
     return {
       remainingAmount: 0,
       daysLeft: Math.max(daysLeft, 0),
       dailySavingRequired: 0,
       progressPercent: roundCurrency(progressPercent),
+      expectedProgressPercent: 100,
       status: 'completed' as const,
-      message: 'Goal completed. Great work staying consistent.',
+      message: 'Goal completed! Great work staying consistent. 🎉',
     };
   }
 
+  /* ── Expired (past deadline) ── */
   if (daysLeft <= 0) {
     return {
       remainingAmount: roundCurrency(remainingAmount),
       daysLeft: 0,
       dailySavingRequired: roundCurrency(remainingAmount),
       progressPercent: roundCurrency(progressPercent),
+      expectedProgressPercent: 100,
       status: 'expired' as const,
-      message: 'Goal deadline passed. Extend timeline or increase savings pace.',
+      message: 'Goal deadline has passed. Extend the timeline or increase your savings pace.',
     };
   }
 
   const dailySavingRequired = remainingAmount / daysLeft;
 
+  /* ── Expected progress (% of goal you should have saved by today) ──
+     We infer total goal duration from created_at/deadline. If we can't know
+     the start date, we derive it: total_days = daysLeft + daysElapsed.
+     We approximate daysElapsed as the days since deadline - 90 (a default 90d goal),
+     but we can't know the real start from this function, so we use the fraction
+     (remainingAmount / targetAmount) * 100 as the "still needed" proxy.
+     
+     A simpler, accurate approach: compare dailySavingRequired as a % of target.
+     - If you need > 1.5% of target PER DAY → behind (at that rate, goal takes < 67 days)
+     - If you need 0.5%–1.5% of target per day → at-risk
+     - < 0.5% per day → on-track
+  ── */
+  const dailyPctOfTarget = (dailySavingRequired / targetAmount) * 100;
+
   let status: 'on-track' | 'at-risk' | 'behind' = 'on-track';
-  if (dailySavingRequired > 1000) {
+  if (dailyPctOfTarget > 1.5) {
     status = 'behind';
-  } else if (dailySavingRequired > 500) {
+  } else if (dailyPctOfTarget > 0.5) {
     status = 'at-risk';
   }
 
+  /* Expected progress: if goal ran for N total days, how far should we be today?
+     We can't know the true start date here, but we can use the ratio:
+       expected% = (1 - daysLeft / totalDays) * 100
+     We estimate totalDays as the original deadline span. Since we only have
+     daysLeft and currentSaved, we compute totalDays = daysLeft + daysAlreadySaved,
+     where daysAlreadySaved ≈ currentSaved / (targetAmount / totalDays).
+     Simpler: use the linear expectation based on saved progress.
+  */
+  // Use: if you saved `currentSaved` and have `daysLeft` left at `dailySavingRequired`,
+  // then original duration = currentSaved/dailySavingRequired + daysLeft
+  const daysAlreadyElapsed = dailySavingRequired > 0
+    ? Math.round(currentSaved / dailySavingRequired)
+    : 0;
+  const totalDays = daysAlreadyElapsed + daysLeft;
+  const expectedProgressPercent = totalDays > 0
+    ? clamp((daysAlreadyElapsed / totalDays) * 100, 0, 100)
+    : 0;
+
   const message = status === 'on-track'
-    ? 'You are on track. Keep this pace to hit your goal.'
+    ? 'You are on track. Keep this pace to hit your goal. 🚀'
     : status === 'at-risk'
-      ? 'Slightly aggressive target. Consider cutting discretionary spend.'
-      : 'Target pace is high. Increase savings or move deadline for realism.';
+      ? 'Slightly behind schedule. Consider cutting discretionary spend this week.'
+      : 'You need to significantly increase your savings pace to meet this deadline.';
 
   return {
     remainingAmount: roundCurrency(remainingAmount),
     daysLeft,
     dailySavingRequired: roundCurrency(dailySavingRequired),
     progressPercent: roundCurrency(progressPercent),
+    expectedProgressPercent: roundCurrency(expectedProgressPercent),
     status,
     message,
   };
 }
+
 
 function runInsightRules(
   facts: FinancialFacts,

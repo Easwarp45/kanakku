@@ -176,26 +176,36 @@ html, body, #root {
     box-sizing: border-box;
   }
 
+  /* ── Global: no text selection, no long-press callout, no tap flash ── */
   *, *::before, *::after {
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
     touch-action: manipulation;
   }
 
+  /* ── Form inputs: restore text selection so typing works normally ── */
   input,
   textarea,
   [contenteditable] {
-    user-select: text;
     -webkit-user-select: text;
-    touch-action: auto;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+    touch-action: auto;   /* needed for keyboard scroll on Android */
   }
 
+  /* ── Typography ── */
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Space Grotesk', system-ui, sans-serif;
     font-weight: 700;
     letter-spacing: -0.02em;
   }
 
+  /* ── Font size floor: prevent iOS zoom on focus ── */
   input[type="text"],
   input[type="email"],
   input[type="number"],
@@ -207,6 +217,7 @@ html, body, #root {
     font-size: 16px;
   }
 
+  /* ── Touch target minimum (WCAG 2.5.5) ── */
   button, a, [role="button"] {
     @apply min-h-[44px];
   }
@@ -217,6 +228,7 @@ html, body, #root {
     }
   }
 }
+
 
 @layer components {
   /* Glass card — @supports fallback for low-end Android without backdrop-filter */
@@ -367,25 +379,6 @@ html, body, #root {
 }
 
 @layer utilities {
-  .page-content {
-    padding-top: max(var(--safe-top), var(--status-bar-height));
-    padding-left: var(--safe-left);
-    padding-right: var(--safe-right);
-    flex: 1;
-    display: block;
-  }
-
-  .theme-page {
-    background: var(--bg);
-    color: var(--text);
-  }
-
-  .theme-card {
-    background: hsl(var(--card) / 0.72);
-    border-color: hsl(var(--border) / 0.86);
-    color: var(--text);
-  }
-
   .native-scroll {
     height: 100%;
     width: 100%;
