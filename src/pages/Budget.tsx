@@ -30,7 +30,7 @@ export default function Budget() {
 
   const toEditableAmount = (amountInBase: number) => {
     const converted = convertFromBase(amountInBase);
-    return (Math.round(converted * 100) / 100).toString();
+    return converted.toString();
   };
 
   const availableCategories = Object.keys(CATEGORY_CONFIG).filter(

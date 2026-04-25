@@ -43,8 +43,7 @@ export default function IncomeDetail() {
   useEffect(() => {
     if (income) {
       const displayAmount = convertFromBase(income.amount);
-      const roundedAmount = Math.round(displayAmount * 100) / 100;
-      setAmount(roundedAmount.toString());
+      setAmount(displayAmount.toString());
       setSource(income.source);
       setDescription(income.description || '');
       setDate(new Date(income.income_date));

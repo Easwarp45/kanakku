@@ -40,8 +40,7 @@ export default function ExpenseDetail() {
   useEffect(() => {
     if (expense) {
       const displayAmount = convertFromBase(expense.amount);
-      const roundedAmount = Math.round(displayAmount * 100) / 100;
-      setAmount(roundedAmount.toString());
+      setAmount(displayAmount.toString());
       setCategory(expense.category);
       setDescription(expense.description || '');
       setPaymentMethod(expense.payment_method);

@@ -39,7 +39,7 @@ export default function SettleUp() {
     if (preselectedAmount) {
       const parsedBaseAmount = parseFloat(preselectedAmount);
       if (!isNaN(parsedBaseAmount) && parsedBaseAmount > 0) {
-        const localAmount = Math.round(convertFromBase(parsedBaseAmount) * 100) / 100;
+        const localAmount = convertFromBase(parsedBaseAmount);
         setAmount(localAmount.toString());
       }
     }
@@ -51,7 +51,7 @@ export default function SettleUp() {
   const handleQuickSettle = async (toUserId: string, baseAmount: number, noteLabel?: string) => {
     if (!groupId || !toUserId || !baseAmount) return;
     setSelectedMember(toUserId);
-    const localAmount = Math.round(convertFromBase(baseAmount) * 100) / 100;
+    const localAmount = convertFromBase(baseAmount);
     setAmount(localAmount.toString());
     setNote(noteLabel || '');
 

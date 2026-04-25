@@ -130,19 +130,25 @@ export function formatMoney(
   const normalized = normalizeCurrency(currency);
   const locale = getCurrencyLocale(normalized);
 
+  // Keep currency values cent-accurate across the app, even when legacy call sites
+  // still pass maximumFractionDigits: 0.
+  const minimumFractionDigits = Math.max(2, options.minimumFractionDigits ?? 2);
+  const requestedMaximum = options.maximumFractionDigits ?? minimumFractionDigits;
+  const maximumFractionDigits = Math.max(minimumFractionDigits, requestedMaximum, 2);
+
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: normalized,
-    minimumFractionDigits: options.minimumFractionDigits,
-    maximumFractionDigits: options.maximumFractionDigits,
+    minimumFractionDigits,
+    maximumFractionDigits,
     notation: options.notation,
   }).format(amount);
 }
 
 export function formatMoneyCompact(amount: number, currency: string | null | undefined): string {
   return formatMoney(amount, currency, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 1,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
     notation: 'compact',
   });
 }

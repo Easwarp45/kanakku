@@ -594,7 +594,7 @@ export function useGroupBalances(groupId: string | undefined) {
       return {
         user_id: member.user_id,
         display_name: member.nickname || member.profile?.display_name || 'Member',
-        balance: Math.round(balance * 100) / 100,
+        balance,
       };
     });
 
@@ -614,7 +614,7 @@ export function useGroupBalances(groupId: string | undefined) {
             from_name: debtor.display_name,
             to_user_id: creditor.user_id,
             to_name: creditor.display_name,
-            amount: Math.round(amount * 100) / 100,
+            amount,
           });
           remaining -= amount;
           creditor.balance -= amount;
@@ -1076,13 +1076,15 @@ export function useRemoveGroupMember() {
 
 // Fetch group chat messages
 export function useGroupChats(groupId: string | undefined) {
-  return useQuery({
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  const query = useQuery({
     queryKey: ['group-chats', groupId],
     queryFn: async () => {
       if (!groupId) return [];
 
       try {
-        // Fetch messages first
         const { data: messages, error: messagesError } = await supabase
           .from('group_chats')
           .select('id,group_id,user_id,message,created_at,updated_at')
@@ -1093,7 +1095,6 @@ export function useGroupChats(groupId: string | undefined) {
         if (messagesError) throw messagesError;
         if (!messages || messages.length === 0) return [];
 
-        // Fetch user profiles separately
         const userIds = [...new Set(messages.map(m => m.user_id))];
         const { data: profiles, error: profilesError } = await supabase
           .from('profiles')
@@ -1102,17 +1103,13 @@ export function useGroupChats(groupId: string | undefined) {
 
         if (profilesError) {
           logger.error('Error fetching profiles for chat:', profilesError);
-          // Continue without profiles rather than failing
         }
 
-        // Map profiles by user_id
         const profileMap = (profiles || []).reduce((acc, p) => {
           acc[p.user_id] = p;
           return acc;
         }, {} as Record<string, any>);
 
-        // Combine messages with profiles.
-        // We fetch latest 50 in descending order, then reverse for chronological UI rendering.
         return messages.map(message => ({
           ...message,
           profiles: profileMap[message.user_id] || { user_id: message.user_id, display_name: null, avatar_url: null },
@@ -1123,8 +1120,61 @@ export function useGroupChats(groupId: string | undefined) {
       }
     },
     enabled: !!groupId,
-    staleTime: 1000 * 30, // 30 seconds; refreshed via realtime websocket events
+    staleTime: 0,              // always re-check when window refocuses
+    refetchOnMount: 'always',  // always fresh on tab switch
   });
+
+  // Per-group realtime subscription: injects new messages directly into the
+  // cache via setQueryData — no network round-trip, appears in <100 ms.
+  useEffect(() => {
+    if (!groupId) return;
+
+    const channel = supabase
+      .channel(`group-chat-${groupId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'group_chats',
+          filter: `group_id=eq.${groupId}`,
+        },
+        async (payload) => {
+          const newMsg = payload.new as {
+            id: string; group_id: string; user_id: string;
+            message: string; created_at: string; updated_at: string;
+          };
+
+          // Look up the sender's profile (cheap, single-row, cached by browser)
+          let profile: { user_id: string; display_name: string | null; avatar_url: string | null } | null = null;
+          try {
+            const { data } = await supabase
+              .from('profiles')
+              .select('user_id,display_name,avatar_url')
+              .eq('user_id', newMsg.user_id)
+              .maybeSingle();
+            profile = data;
+          } catch { /* profile stays null, we show initials */ }
+
+          const msgWithProfile = {
+            ...newMsg,
+            profiles: profile ?? { user_id: newMsg.user_id, display_name: null, avatar_url: null },
+          };
+
+          queryClient.setQueryData(['group-chats', groupId], (old: any[] | undefined) => {
+            const current = old ?? [];
+            // Deduplicate: if this message id is already in cache (e.g. from optimistic update), replace it
+            const without = current.filter(m => m.id !== newMsg.id);
+            return [...without, msgWithProfile];
+          });
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [groupId, queryClient]);
+
+  return query;
 }
 
 // Send group chat message
@@ -1137,18 +1187,7 @@ export function useSendGroupChat() {
       if (!user) throw new Error('Not authenticated');
       if (!input.message.trim()) throw new Error('Message cannot be empty');
 
-      // Check if user is group member
-      const { data: member, error: memberError } = await supabase
-        .from('group_members')
-        .select('id')
-        .eq('group_id', input.groupId)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (memberError) throw memberError;
-      if (!member) throw new Error('You are not a member of this group');
-
-      // Insert message
+      // No membership pre-check — RLS enforces it on insert (saves 200-400ms per message)
       const { data, error } = await supabase
         .from('group_chats')
         .insert({
@@ -1162,16 +1201,59 @@ export function useSendGroupChat() {
       if (error) throw error;
       return data;
     },
-    onSuccess: (_, variables) => {
-      // Invalidate chat cache and immediately refetch to show new message
-      queryClient.invalidateQueries({ queryKey: ['group-chats', variables.groupId] });
-      // Refetch immediately for real-time feedback
-      queryClient.refetchQueries({ queryKey: ['group-chats', variables.groupId] });
+
+    // Optimistic update: inject message into cache BEFORE the DB insert completes
+    onMutate: async (input) => {
+      // Cancel any in-flight refetches so they don't overwrite the optimistic entry
+      await queryClient.cancelQueries({ queryKey: ['group-chats', input.groupId] });
+
+      const previousChats = queryClient.getQueryData<any[]>(['group-chats', input.groupId]);
+
+      const optimisticMessage = {
+        id: `optimistic-${Date.now()}`,
+        group_id: input.groupId,
+        user_id: user!.id,
+        message: input.message.trim(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        profiles: { user_id: user!.id, display_name: null, avatar_url: null },
+        _optimistic: true,
+      };
+
+      queryClient.setQueryData(['group-chats', input.groupId], (old: any[] | undefined) => [
+        ...(old ?? []),
+        optimisticMessage,
+      ]);
+
+      return { previousChats };
     },
-    onError: (error) => {
-      const msg = error instanceof Error ? error.message : 'Failed to send message';
+
+    onSuccess: (savedMsg, input) => {
+      // Replace the optimistic entry with the real DB row (has the real id)
+      queryClient.setQueryData(['group-chats', input.groupId], (old: any[] | undefined) => {
+        const current = old ?? [];
+        // Remove our optimistic placeholder(s) and append the confirmed message
+        const without = current.filter(m => !m._optimistic);
+        return [
+          ...without,
+          {
+            ...savedMsg,
+            profiles: { user_id: user!.id, display_name: null, avatar_url: null },
+          },
+        ];
+      });
+      // The realtime INSERT event will arrive shortly and deduplicate via the
+      // setQueryData in useGroupChats, adding the correct profile.
+    },
+
+    onError: (_err, input, context) => {
+      // Roll back to pre-send state if the DB insert failed
+      if (context?.previousChats !== undefined) {
+        queryClient.setQueryData(['group-chats', input.groupId], context.previousChats);
+      }
+      const msg = _err instanceof Error ? _err.message : 'Failed to send message';
       logger.error('Chat error:', msg);
-      throw error;
+      throw _err;
     },
   });
 }

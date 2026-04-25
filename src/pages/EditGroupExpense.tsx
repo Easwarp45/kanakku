@@ -37,7 +37,7 @@ export default function EditGroupExpense() {
 
   useEffect(() => {
     if (expense) {
-      const localAmount = Math.round(convertFromBase(expense.amount) * 100) / 100;
+      const localAmount = convertFromBase(expense.amount);
       setAmount(localAmount.toString());
       setDescription(expense.description || '');
       setCategory(expense.category);
@@ -52,7 +52,7 @@ export default function EditGroupExpense() {
         expense.splits
           .filter(s => Number(s.amount) > 0)
           .forEach(s => {
-            next[s.user_id] = (Math.round(convertFromBase(s.amount) * 100) / 100).toString();
+            next[s.user_id] = convertFromBase(s.amount).toString();
         });
         setCustomAmounts(next);
       }

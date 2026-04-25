@@ -91,13 +91,9 @@ export function useRealtimeSync() {
           queryClient.invalidateQueries({ queryKey: ['expense-splits'] });
         }
       )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'group_chats' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['group-chats'] });
-        }
-      )
+      // NOTE: group_chats realtime is handled per-group inside useGroupChats
+      // via setQueryData (cache injection). No global invalidation needed here.
+
       .subscribe();
 
     return () => {

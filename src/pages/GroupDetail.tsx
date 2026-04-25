@@ -16,7 +16,9 @@ import {
   X,
   Send,
   MessageSquare,
-  Crown
+  Crown,
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -77,7 +79,7 @@ export default function GroupDetail() {
   const { data: expenses = [] } = useGroupExpenses(id);
   const { balances, simplifiedDebts } = useGroupBalances(id);
   const { data: settlements = [] } = useSettlements(id);
-  const { data: chats = [] } = useGroupChats(id);
+  const { data: chats = [], refetch: refetchChats, isFetching: chatsFetching } = useGroupChats(id);
   const leaveGroup = useLeaveGroup();
   const removeGroupMember = useRemoveGroupMember();
   const findContactUsers = useFindContactUsers();
@@ -94,6 +96,75 @@ export default function GroupDetail() {
   const [chatMessage, setChatMessage] = useState('');
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
   const lastMessageSentAtRef = useRef(0);
+  const messagesEndRef   = useRef<HTMLDivElement>(null);
+  const chatScrollRef    = useRef<HTMLDivElement>(null);   // the scrollable messages container
+
+  // ── Pull-to-refresh state ────────────────────────────────────────────────
+  const touchStartYRef   = useRef(0);
+  const pullDistanceRef  = useRef(0);
+  const isPullingRef     = useRef(false);
+  const [isPullingState, setIsPullingState] = useState(false); // drives re-render for indicator
+  const PTR_THRESHOLD    = 65; // px — how far the user must pull before release triggers refresh
+
+  // Register pull-to-refresh touch handlers on the chat scroll container.
+  // We use passive:false on touchmove ONLY while pulling so we can call
+  // preventDefault() and stop the container from scrolling during the pull gesture.
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      // Only start pull gesture when already at the top of the list
+      if (el.scrollTop === 0) {
+        touchStartYRef.current = e.touches[0].clientY;
+        isPullingRef.current   = true;
+        pullDistanceRef.current = 0;
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!isPullingRef.current) return;
+      const delta = e.touches[0].clientY - touchStartYRef.current;
+      if (delta <= 0) {
+        // Scrolling up — cancel pull gesture
+        isPullingRef.current = false;
+        pullDistanceRef.current = 0;
+        setIsPullingState(false);
+        return;
+      }
+      // Cap visual rubber-band at 100px
+      pullDistanceRef.current = Math.min(delta, 100);
+      setIsPullingState(true);
+      // Prevent the container from scrolling while the user is pulling down
+      e.preventDefault();
+    };
+
+    const onTouchEnd = () => {
+      if (!isPullingRef.current) return;
+      if (pullDistanceRef.current >= PTR_THRESHOLD) {
+        void refetchChats();
+      }
+      isPullingRef.current    = false;
+      pullDistanceRef.current = 0;
+      setIsPullingState(false);
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove',  onTouchMove,  { passive: false });
+    el.addEventListener('touchend',   onTouchEnd,   { passive: true });
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove',  onTouchMove);
+      el.removeEventListener('touchend',   onTouchEnd);
+    };
+  }, [refetchChats]);
+
+  // Auto-scroll to latest message whenever the list grows
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chats.length]);
+
   const [contactMatches, setContactMatches] = useState<Array<{
     user_id: string;
     display_name: string | null;
@@ -215,14 +286,14 @@ export default function GroupDetail() {
     }
   };
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = () => {
     if (!id || !chatMessage.trim()) return;
     if (sendGroupChat.isPending) return;
 
     const now = Date.now();
     if (now - lastMessageSentAtRef.current < 600) return;
     lastMessageSentAtRef.current = now;
-    
+
     // Verify user is still a member before sending message
     const isCurrentUserMember = members.some(m => m.user_id === user?.id);
     if (!isCurrentUserMember) {
@@ -230,12 +301,20 @@ export default function GroupDetail() {
       navigate('/groups');
       return;
     }
-    
-    await sendGroupChat.mutateAsync({
-      groupId: id,
-      message: chatMessage,
-    });
-    setChatMessage('');
+
+    const msg = chatMessage;
+    setChatMessage('');  // Clear immediately for native-feel responsiveness
+
+    // Fire without await — optimistic update shows the message instantly;
+    // onError in the mutation rolls back if the DB insert fails.
+    sendGroupChat.mutate(
+      { groupId: id, message: msg },
+      {
+        onError: () => {
+          setChatMessage(msg); // restore on failure
+        },
+      }
+    );
   };
 
   const handleImportContactUsers = async () => {
@@ -845,8 +924,43 @@ export default function GroupDetail() {
 
         {/* Chat Tab */}
         <TabsContent value="chat" className="flex flex-col min-h-0 flex-1">
-          {/* Messages */}
-          <div className="flex-1 min-h-0 p-4 space-y-3">
+
+          {/* ── Chat header: message count + manual refresh button ── */}
+          <div className="flex items-center justify-between px-4 pt-3 pb-1">
+            <p className="text-xs text-muted-foreground">
+              {chats.filter((c: any) => !c._optimistic).length} messages
+            </p>
+            <button
+              onClick={() => void refetchChats()}
+              disabled={chatsFetching}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 rounded-lg px-2 py-1 hover:bg-muted"
+              title="Refresh messages"
+            >
+              {chatsFetching
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <RefreshCw className="h-3.5 w-3.5" />}
+              <span>{chatsFetching ? 'Refreshing…' : 'Refresh'}</span>
+            </button>
+          </div>
+
+          {/* ── Pull-to-refresh visual indicator ── */}
+          <div
+            className={cn(
+              'flex items-center justify-center gap-2 text-xs text-muted-foreground overflow-hidden transition-all duration-200',
+              isPullingState ? 'py-2 opacity-100' : 'py-0 opacity-0 h-0'
+            )}
+          >
+            {chatsFetching
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <RefreshCw className="h-3.5 w-3.5" style={{ transform: `rotate(${Math.min(pullDistanceRef.current / PTR_THRESHOLD, 1) * 180}deg)` }} />}
+            <span>{chatsFetching ? 'Refreshing…' : 'Pull to refresh'}</span>
+          </div>
+
+          {/* ── Messages list ── */}
+          <div
+            ref={chatScrollRef}
+            className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3"
+          >
             {chats.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center py-12">
                 <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
@@ -863,6 +977,7 @@ export default function GroupDetail() {
                   : (chat.profiles?.display_name || getMemberName(chat.user_id));
                 const avatarColor = getAvatarColor(chat.user_id);
                 const avatarInitial = senderName.charAt(0).toUpperCase();
+                const isOptimistic = !!chat._optimistic;
 
                 return (
                   <div key={chat.id} className={cn('flex gap-2', isMe && 'flex-row-reverse')}>
@@ -877,18 +992,21 @@ export default function GroupDetail() {
                         'px-3 py-2 rounded-2xl text-sm',
                         isMe 
                           ? 'bg-primary text-primary-foreground rounded-tr-sm' 
-                          : 'bg-muted rounded-tl-sm'
+                          : 'bg-muted rounded-tl-sm',
+                        isOptimistic && 'opacity-70'
                       )}>
                         {chat.message}
                       </div>
                       <p className="text-[10px] text-muted-foreground mt-1">
-                        {format(new Date(chat.created_at), 'h:mm a')}
+                        {isOptimistic ? '⏱ Sending…' : format(new Date(chat.created_at), 'h:mm a')}
                       </p>
                     </div>
                   </div>
                 );
               })
             )}
+            {/* Scroll anchor — auto-scrolls to bottom when chats update */}
+            <div ref={messagesEndRef} />
           </div>
 
           {/* Message Input - hidden for non-members */}

@@ -36,7 +36,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function roundCurrency(value: number): number {
-  return Math.round(value * 100) / 100;
+  return Number(value.toFixed(2));
 }
 
 function normalizeMerchant(value: string): string {
@@ -517,7 +517,7 @@ function runInsightRules(
     type: budget > 0 && facts.projectedMonthSpend > budget ? 'warning' : 'info',
     priority: budget > 0 && facts.projectedMonthSpend > budget ? 1 : 2,
     title: 'Month-end projection',
-    message: `At this pace, projected monthly spend is ${Math.round(facts.projectedMonthSpend)}.`,
+    message: `At this pace, projected monthly spend is ${facts.projectedMonthSpend.toFixed(2)}.`,
     icon: 'P',
     actionRoute: '/analytics',
     actionLabel: 'View Trend',
@@ -579,7 +579,7 @@ function runInsightRules(
       type: 'suggestion',
       priority: 2,
       title: 'Savings goal needs attention',
-      message: `Save ${Math.round(goalAnalysis.dailySavingRequired)} per day to stay on track for your goal.`,
+      message: `Save ${goalAnalysis.dailySavingRequired.toFixed(2)} per day to stay on track for your goal.`,
       icon: 'G',
       actionRoute: '/budget',
       actionLabel: 'Optimize Spending',

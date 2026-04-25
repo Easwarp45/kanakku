@@ -162,7 +162,7 @@ export default function Dashboard() {
                     value={monthlyDisplayTotal}
                     durationMs={950}
                     className="font-display text-[clamp(1.8rem,9vw,2.5rem)] font-bold amount-neutral truncate"
-                    formatter={(value) => formatLocalNumber(value, { maximumFractionDigits: 0 })}
+                    formatter={(value) => formatLocalNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   />
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">total expenses tracked</p>
@@ -185,7 +185,7 @@ export default function Dashboard() {
                 value={todayDisplayTotal}
                 durationMs={800}
                 className="font-display text-2xl font-bold text-cyan-400"
-                formatter={(value) => formatLocalNumber(value, { maximumFractionDigits: 0 })}
+                formatter={(value) => formatLocalNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               />
             </div>
             <div className="mt-3 flex items-center gap-1">
