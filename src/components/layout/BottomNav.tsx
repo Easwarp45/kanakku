@@ -26,9 +26,8 @@ export default function BottomNav() {
     <nav
       style={{
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        flexShrink: 0,
       }}
-      className="flex justify-center pb-2 px-2 sm:px-4"
+      className="fixed inset-x-0 bottom-0 z-40 flex justify-center pb-2 px-2 sm:px-4"
     >
       <div className="nav-pill flex items-center gap-0.5 px-1.5 sm:px-3 py-2 w-full max-w-sm">
         {navItems.map(({ to, icon: Icon, label }) => {
@@ -40,7 +39,7 @@ export default function BottomNav() {
               onClick={() => {
                 void handleNavTap(isActive);
               }}
-              className="relative flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-full transition-colors"
+              className="relative flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[52px] py-1.5 rounded-full transition-colors"
             >
               {isActive && (
                 <motion.div

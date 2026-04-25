@@ -374,7 +374,7 @@ export default function GroupDetail() {
   };
 
   return (
-    <div className="page-content min-h-full bg-background pb-20">
+    <div className="page-content min-h-full bg-background">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b px-4 py-3">
         <div className="flex items-center justify-between">

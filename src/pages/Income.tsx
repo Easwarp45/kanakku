@@ -55,11 +55,11 @@ export default function Income() {
 
   return (
     <PageTransition>
-      <div ref={containerRef} className="page-content min-h-full bg-background pb-20" style={{ transform: `translateY(${translateY * 0.5}px)` }}>
+      <div ref={containerRef} className="page-content min-h-full bg-background theme-page flex flex-col justify-start">
       {/* Refresh Indicator */}
       <RefreshIndicator translateY={translateY} isRefreshing={isRefreshing} threshold={60} />
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-background border-b px-4 py-3">
+      <header className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 border-b px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
@@ -107,7 +107,7 @@ export default function Income() {
           </div>
         ) : incomeRecords.length === 0 ? (
           <Card className="m-4">
-            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <CardContent className="flex flex-col items-center justify-start py-12 text-center">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
                   <span className="text-lg font-semibold text-muted-foreground">{symbol}</span>
               </div>

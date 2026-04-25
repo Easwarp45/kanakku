@@ -67,7 +67,7 @@ export default function Signup() {
   const inputClass = "bg-white/5 border-white/10 focus:border-primary/60 placeholder:text-muted-foreground/50 rounded-xl h-12";
 
   return (
-    <div className="page-content bg-background relative">
+    <div className="page-content min-h-full bg-background relative">
       {/* Background blobs */}
       <div className="pointer-events-none absolute inset-0 ">
         <div className="absolute -top-32 -right-32 h-64 w-64 rounded-full bg-primary/20 blur-[80px]" />

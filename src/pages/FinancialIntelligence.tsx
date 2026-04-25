@@ -346,7 +346,7 @@ export default function FinancialIntelligence() {
 
   /* ══════════════════════════════════════════════════════ RENDER ═══ */
   return (
-    <div className="page-content min-h-full bg-background pb-28">
+    <div className="page-content min-h-full bg-background">
 
       {/* ════ HEADER ════ */}
       <header className="sticky top-0 z-40 bg-background/85 backdrop-blur-xl border-b border-white/6 px-4 pt-3 pb-2">

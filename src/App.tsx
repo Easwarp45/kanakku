@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { Capacitor } from "@capacitor/core";
+import { Keyboard } from "@capacitor/keyboard";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
@@ -132,11 +133,44 @@ function App() {
 
 function AppRouterShell() {
   const location = useLocation();
-  const hideBottomNav = ["/login", "/signup", "/forgot-password", "/install"].includes(location.pathname);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const hideBottomNavOnRoute = ["/login", "/signup", "/forgot-password", "/install"].includes(location.pathname);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const listeners: Array<{ remove: () => Promise<void> }> = [];
+
+    const attachListeners = async () => {
+      listeners.push(
+        await Keyboard.addListener("keyboardWillShow", () => setIsKeyboardOpen(true))
+      );
+      listeners.push(
+        await Keyboard.addListener("keyboardDidShow", () => setIsKeyboardOpen(true))
+      );
+      listeners.push(
+        await Keyboard.addListener("keyboardWillHide", () => setIsKeyboardOpen(false))
+      );
+      listeners.push(
+        await Keyboard.addListener("keyboardDidHide", () => setIsKeyboardOpen(false))
+      );
+    };
+
+    void attachListeners();
+
+    return () => {
+      setIsKeyboardOpen(false);
+      for (const listener of listeners) {
+        void listener.remove();
+      }
+    };
+  }, []);
+
+  const showBottomNav = !hideBottomNavOnRoute && !isKeyboardOpen;
 
   return (
-    <div className="app-shell">
-      <div className="app-main">
+    <div className="app-shell" data-keyboard-open={isKeyboardOpen ? "true" : "false"}>
+      <div className="app-main" data-has-bottom-nav={showBottomNav ? "true" : "false"}>
         <Suspense fallback={<PageSkeleton />}>
           <Routes>
             {/* Public routes */}
@@ -174,7 +208,7 @@ function AppRouterShell() {
           </Routes>
         </Suspense>
       </div>
-      {!hideBottomNav && <BottomNav />}
+      {showBottomNav && <BottomNav />}
     </div>
   );
 }

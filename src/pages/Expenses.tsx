@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ArrowLeft, Search, Filter, Trash2, Calendar, Plus } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
@@ -13,7 +12,7 @@ import { useExpenses, useDeleteExpense } from '@/hooks/useExpenses';
 import { CATEGORY_CONFIG, type ExpenseCategory } from '@/types/expense';
 import { getCategoryIcon } from '@/lib/category-icons';
 import { EmptyState } from '@/components/empty-state/EmptyState';
-import { PageTransition, listContainerVariants, listItemVariants } from '@/lib/animations';
+import { PageTransition } from '@/lib/animations';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { RefreshIndicator } from '@/components/ui/refresh-indicator';
 import { SkeletonListLoader } from '@/components/ui/skeleton-loader';
@@ -86,11 +85,11 @@ export default function Expenses() {
 
   return (
     <PageTransition>
-      <div ref={containerRef} className="page-content min-h-full bg-background pb-20" style={{ transform: `translateY(${translateY * 0.5}px)` }}>
+      <div ref={containerRef} className="page-content min-h-full bg-background theme-page flex flex-col justify-start">
       {/* Refresh Indicator */}
       <RefreshIndicator translateY={translateY} isRefreshing={isRefreshing} threshold={60} />
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-background border-b px-4 py-3">
+      <header className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 border-b px-4 py-3">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
             <ArrowLeft className="h-5 w-5" />
@@ -100,7 +99,7 @@ export default function Expenses() {
       </header>
 
       {/* Filters */}
-      <div className="p-4 space-y-3 border-b">
+      <div className="px-4 pb-4 pt-3 space-y-3 border-b">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input

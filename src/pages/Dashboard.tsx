@@ -94,7 +94,7 @@ export default function Dashboard() {
   const todayDisplayTotal = convertFromBase(todayTotal);
 
   return (
-    <div className="page-content min-h-full bg-background pb-24">
+    <div className="page-content min-h-full bg-background theme-page">
       {/* ── Header ── */}
       <header className="sticky top-0 z-50 px-4 pt-4 pb-2">
         <div className="flex items-center justify-between">
@@ -108,7 +108,7 @@ export default function Dashboard() {
                 onClick={requestPermission}
                 aria-label="Enable notifications"
                 title="Enable notifications"
-                className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/8 hover:bg-white/10 transition-colors"
+                className="h-9 w-9 flex items-center justify-center rounded-xl bg-card/75 border border-border/70 hover:bg-card transition-colors"
               >
                 <Bell className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               </button>
@@ -116,7 +116,7 @@ export default function Dashboard() {
             <button
               onClick={handleSignOut}
               aria-label="Sign out"
-              className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/8 hover:bg-white/10 transition-colors"
+              className="h-9 w-9 flex items-center justify-center rounded-xl bg-card/75 border border-border/70 hover:bg-card transition-colors"
             >
               <LogOut className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             </button>
@@ -149,8 +149,8 @@ export default function Dashboard() {
             className="bento-card col-span-1 min-[360px]:col-span-2 cursor-pointer group"
             onClick={() => navigate('/expenses')}
             style={{
-              background: 'linear-gradient(135deg, rgba(168,85,247,0.18) 0%, rgba(12,200,224,0.08) 100%)',
-              borderColor: 'rgba(168,85,247,0.25)',
+              background: 'linear-gradient(135deg, hsl(var(--primary) / 0.18) 0%, hsl(var(--secondary) / 0.08) 100%)',
+              borderColor: 'hsl(var(--primary) / 0.25)',
             }}
           >
             <div className="flex items-start justify-between">
@@ -225,7 +225,7 @@ export default function Dashboard() {
                 <button
                   key={action.path}
                   onClick={() => navigate(action.path)}
-                  className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-white/5 border border-white/8 hover:border-primary/30 hover:bg-primary/5 transition-all shrink-0 w-[72px]"
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-card/70 border border-border/70 hover:border-primary/30 hover:bg-primary/5 transition-all shrink-0 w-[72px]"
                 >
                   <div className={cn('h-9 w-9 rounded-xl bg-gradient-to-br flex items-center justify-center', action.color)}>
                     <action.icon className="h-4 w-4 text-white" />
@@ -307,7 +307,7 @@ export default function Dashboard() {
                   <motion.div
                     key={expense.id}
                     variants={itemVariants}
-                    className="flex items-center gap-3 p-3 rounded-2xl bg-white/4 border border-white/6 hover:bg-white/7 hover:border-primary/20 cursor-pointer transition-all"
+                    className="flex items-center gap-3 p-3 rounded-2xl bg-card/65 border border-border/65 hover:bg-card/90 hover:border-primary/20 cursor-pointer transition-all"
                     onClick={() => navigate(`/expenses/${expense.id}`)}
                   >
                     <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0', config.color)}>

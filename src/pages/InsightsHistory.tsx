@@ -54,7 +54,7 @@ export default function InsightsHistory() {
   };
 
   return (
-    <div className="page-content min-h-full bg-background pb-20 overflow-x-hidden">
+    <div className="page-content min-h-full bg-background overflow-x-hidden">
       <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
         <div className="flex items-center justify-between gap-2 p-4">
           <div className="flex items-center gap-2">

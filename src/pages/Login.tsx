@@ -53,7 +53,7 @@ export default function Login() {
   }
 
   return (
-    <div className="page-content bg-background relative">
+    <div className="page-content min-h-full bg-background theme-page flex flex-col relative">
       {/* Background blobs */}
       <div className="pointer-events-none absolute inset-0 ">
         <div className="absolute -top-32 -left-32 h-64 w-64 rounded-full bg-primary/20 blur-[80px]" />
@@ -73,18 +73,18 @@ export default function Login() {
           <div className="relative flex items-center justify-center">
             {/* outer pulse ring */}
             <div className="absolute h-28 w-28 rounded-full"
-              style={{ background: 'radial-gradient(circle,rgba(0,207,255,0.18) 0%,rgba(0,232,122,0.1) 50%,transparent 75%)', filter: 'blur(8px)' }}
+              style={{ background: 'radial-gradient(circle,hsl(var(--secondary) / 0.18) 0%,hsl(var(--primary) / 0.1) 50%,transparent 75%)', filter: 'blur(8px)' }}
             />
             {/* middle ring */}
-            <div className="absolute h-[88px] w-[88px] rounded-full border border-white/10"
-              style={{ boxShadow: '0 0 20px rgba(0,207,255,0.2)' }}
+            <div className="absolute h-[88px] w-[88px] rounded-full border border-border/70"
+              style={{ boxShadow: '0 0 20px hsl(var(--secondary) / 0.2)' }}
             />
             {/* logo itself */}
             <KanakkuLogo size={68} />
           </div>
           <div className="text-center">
             <h1 className="font-display text-3xl font-bold"
-              style={{ background: 'linear-gradient(135deg,#00CFFF 0%,#00E87A 50%,#CCFF00 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}
+              style={{ background: 'linear-gradient(135deg,hsl(var(--secondary)) 0%,hsl(var(--success)) 50%,hsl(var(--accent)) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}
             >
               Kanakku
             </h1>
@@ -117,7 +117,7 @@ export default function Login() {
                           type="email"
                           placeholder="you@example.com"
                           autoComplete="email"
-                          className="bg-white/5 border-white/10 focus:border-primary/60 placeholder:text-muted-foreground/50 rounded-xl h-12"
+                          className="bg-card/70 border-border/70 focus:border-primary/60 placeholder:text-muted-foreground/50 rounded-xl h-12"
                           {...field}
                         />
                       </FormControl>
@@ -139,12 +139,12 @@ export default function Login() {
                             type={showPassword ? "text" : "password"}
                             placeholder="••••••••"
                             autoComplete="current-password"
-                            className="bg-white/5 border-white/10 focus:border-primary/60 placeholder:text-muted-foreground/50 rounded-xl h-12 pr-12"
+                            className="bg-card/70 border-border/70 focus:border-primary/60 placeholder:text-muted-foreground/50 rounded-xl h-12 pr-12"
                             {...field}
                           />
                           <button
                             type="button"
-                            className="absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-lg hover:bg-card transition-colors"
                             onClick={() => setShowPassword(!showPassword)}
                           >
                             {showPassword ? (

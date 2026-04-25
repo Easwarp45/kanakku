@@ -89,7 +89,7 @@ export default function Profile() {
   const isDark = theme === 'dark';
 
   return (
-    <div className="page-content min-h-full bg-background pb-20">
+    <div className="page-content min-h-full bg-background">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
         <div className="flex items-center justify-between p-4">
