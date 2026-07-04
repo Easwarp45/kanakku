@@ -53,13 +53,13 @@ export function useUpdateProfile() {
 
       const { data, error } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          user_id: user.id,
           display_name: input.display_name,
           phone_number: input.phone_number,
           currency: input.currency,
           language: input.language,
-        })
-        .eq('user_id', user.id)
+        }, { onConflict: 'user_id' })
         .select()
         .single();
 
