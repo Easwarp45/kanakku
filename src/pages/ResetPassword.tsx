@@ -80,11 +80,11 @@ export default function ResetPassword() {
     setIsLoading(false);
 
     if (error) {
-      toast.error(error.message || "Failed to update password");
+      toast.error(error.message || "Failed to save password");
       return;
     }
 
-    toast.success("Password updated. Sign in with your new password.");
+    toast.success("Password saved. Sign in with your new password.");
     navigate("/login", { replace: true });
   }
 
@@ -205,7 +205,7 @@ export default function ResetPassword() {
 
               <Button type="submit" className="w-full h-12 rounded-xl font-semibold" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isLoading ? "Updating password..." : "Update password"}
+                {isLoading ? "Saving password..." : "Save password"}
               </Button>
             </form>
           </Form>
