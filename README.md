@@ -392,23 +392,7 @@ Dark glassmorphism theme defined in `src/index.css`:
 
 ---
 
-## ⚠️ Known Issues & TODOs
 
-| # | Issue | Priority |
-|---|---|---|
-| 1 | `.env` file should be in `.gitignore` — add `line: .env` | 🔴 Critical |
-| 2 | No React `<ErrorBoundary>` — unhandled errors crash the whole app | 🔴 Critical |
-| 3 | **Financial Intelligence goals are stored in `useState` only** — not persisted to DB; lost on refresh | 🔴 Critical |
-| 4 | Only 1 test file (`useGroups.test.ts`) with 6 tests — no coverage for expenses/auth/budget/analytics | 🟠 High |
-| 5 | `og-image.png` is the same file as `logo.png` — social share preview broken | 🟠 High |
-| 6 | PWA manifest `screenshots: []` empty — Play Store install prompt has no preview | 🟠 High |
-| 7 | No Privacy Policy / Terms of Service page — required for Play Store and App Store | 🟠 High |
-| 8 | UPI feature is UI-only — no real payment gateway integration | 🟡 Medium |
-| 9 | Goal currency label hardcoded to ₹ in Financial Intelligence inputs | 🟡 Medium |
-| 10 | `bundledWebRuntime: false` in capacitor.config.ts is deprecated and should be removed | 🟡 Medium |
-| 11 | Mixed `bun.lock` + `package-lock.json` — pick one package manager | 🟡 Medium |
-
----
 
 ## 📋 Changelog
 
