@@ -26,7 +26,7 @@ const config: CapacitorConfig = {
       overlaysWebView: false, // WebView must NOT extend under status bar
     },
     Keyboard: {
-      resize: 'native',
+      resize: 'none',
     },
   },
 };

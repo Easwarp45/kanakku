@@ -1,7 +1,7 @@
 html, body, #root {
   height: 100%;
   width: 100%;
-  overflow: auto;
+  overflow: hidden;
   margin: 0;
   padding: 0;
   background: var(--bg, #0A0A0F);
@@ -11,17 +11,20 @@ html, body, #root {
 .app-shell {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
-  min-height: 100dvh;
   height: 100%;
+  overflow: hidden;          /* shell never scrolls — app-main handles that */
   background: var(--bg, #0A0A0F);
   color: var(--text, #E2E8F0);
 }
+
 
 .app-main {
   flex: 1;
   overflow-x: hidden;
   overflow-y: auto;
+  position: relative;
+  transition: transform 0.15s ease-out;
+  will-change: height;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   min-height: 0;

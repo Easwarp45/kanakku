@@ -19,6 +19,7 @@ import BottomNav from "@/components/layout/BottomNav";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { useKeyboardFix } from "@/hooks/useKeyboardFix";
 
 // ── Critical path pages: loaded eagerly (needed on first route) ──────────────
 import Login from "./pages/Login";
@@ -46,6 +47,9 @@ const AddIncome            = lazy(() => import("./pages/AddIncome"));
 const Income               = lazy(() => import("./pages/Income"));
 const IncomeDetail         = lazy(() => import("./pages/IncomeDetail"));
 const MonthlyWrap          = lazy(() => import("./pages/MonthlyWrap"));
+const ResetPassword        = lazy(() => import("./pages/ResetPassword"));
+const Terms                = lazy(() => import("./pages/Terms"));
+const Privacy              = lazy(() => import("./pages/Privacy"));
 const FinancialIntelligence = lazy(() => import("./pages/FinancialIntelligence"));
 const NotFound             = lazy(() => import("./pages/NotFound"));
 
@@ -181,7 +185,8 @@ function App() {
 function AppRouterShell() {
   const location = useLocation();
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
-  const hideBottomNavOnRoute = ["/login", "/signup", "/forgot-password", "/install"].includes(location.pathname);
+  const hideBottomNavOnRoute = ["/login", "/signup", "/forgot-password", "/reset-password", "/install", "/terms", "/privacy"].includes(location.pathname);
+  useKeyboardFix();
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -190,13 +195,7 @@ function AppRouterShell() {
 
     const attachListeners = async () => {
       listeners.push(
-        await Keyboard.addListener("keyboardWillShow", () => setIsKeyboardOpen(true))
-      );
-      listeners.push(
         await Keyboard.addListener("keyboardDidShow", () => setIsKeyboardOpen(true))
-      );
-      listeners.push(
-        await Keyboard.addListener("keyboardWillHide", () => setIsKeyboardOpen(false))
       );
       listeners.push(
         await Keyboard.addListener("keyboardDidHide", () => setIsKeyboardOpen(false))
@@ -224,7 +223,10 @@ function AppRouterShell() {
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/install" element={<Install />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
 
             {/* Protected routes */}
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

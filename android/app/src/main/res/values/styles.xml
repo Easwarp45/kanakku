@@ -21,6 +21,11 @@
         <item name="android:statusBarColor">#0b0b11</item>
         <!-- Suppress system text-selection handles in WebView -->
         <item name="android:textIsSelectable">false</item>
+        <!-- Ensure keyboard resize is not blocked by theme fullscreen flags -->
+        <item name="android:windowFullscreen">false</item>
+        <!-- Belt-and-suspenders: some Oppo/Realme ROMs read this from the theme
+             instead of (or in addition to) the manifest activity attribute -->
+        <item name="android:windowSoftInputMode">adjustResize</item>
     </style>
 
 
