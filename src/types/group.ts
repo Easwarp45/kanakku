@@ -6,7 +6,7 @@ export interface Group {
   description: string | null;
   image_url: string | null;
   created_by: string;
-  invite_code: string;
+  invite_code: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -16,7 +16,6 @@ export interface GroupMember {
   group_id: string;
   user_id: string;
   nickname: string | null;
-  joined_at?: string;
   created_at?: string;
   is_admin?: boolean;
   profile?: {

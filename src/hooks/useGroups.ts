@@ -71,7 +71,7 @@ export function useGroups() {
       // Then fetch only those groups
       const { data, error } = await supabase
         .from('groups')
-        .select('id,name,description,created_by,invite_code,updated_at')
+        .select('id,name,description,image_url,created_by,invite_code,created_at,updated_at')
         .in('id', groupIds)
         .order('updated_at', { ascending: false });
 
@@ -241,7 +241,7 @@ export function useGroup(id: string | undefined) {
 
       const { data, error } = await supabase
         .from('groups')
-        .select('id,name,description,created_by,invite_code,created_at,updated_at')
+        .select('id,name,description,image_url,created_by,invite_code,created_at,updated_at')
         .eq('id', id)
         .maybeSingle();
 
@@ -473,7 +473,7 @@ export function useGroupExpense(expenseId: string | undefined) {
 
       const { data: expense, error } = await supabase
         .from('group_expenses')
-        .select('id,group_id,paid_by,amount,category,description,expense_date,split_type')
+        .select('id,group_id,paid_by,amount,category,description,expense_date,split_type,created_at,updated_at')
         .eq('id', expenseId)
         .maybeSingle();
 

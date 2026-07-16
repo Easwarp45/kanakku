@@ -15,7 +15,7 @@ export function useIncome(filters?: { startDate?: string; endDate?: string; sour
 
       let query = supabase
         .from('income')
-        .select('id,amount,source,description,income_date,is_recurring,updated_at')
+        .select('id,user_id,amount,source,description,income_date,is_recurring,created_at,updated_at')
         .eq('user_id', user.id)
         .order('income_date', { ascending: false });
 
@@ -111,10 +111,13 @@ export function useCreateIncome() {
 
 export function useUpdateIncome() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { success, error: errorHaptic } = useHaptics();
 
   return useMutation({
     mutationFn: async ({ id, ...input }: UpdateIncomeInput) => {
+      if (!user) throw new Error('Not authenticated');
+
       const updates: Record<string, unknown> = {};
 
       if (input.amount !== undefined) updates.amount = input.amount;
@@ -127,6 +130,7 @@ export function useUpdateIncome() {
         .from('income')
         .update(updates)
         .eq('id', id)
+        .eq('user_id', user.id)
         .select()
         .single();
 
@@ -148,14 +152,18 @@ export function useUpdateIncome() {
 
 export function useDeleteIncome() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { success, error: errorHaptic } = useHaptics();
 
   return useMutation({
     mutationFn: async (id: string) => {
+      if (!user) throw new Error('Not authenticated');
+
       const { error } = await supabase
         .from('income')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', user.id);
       if (error) throw error;
     },
     onSuccess: () => {

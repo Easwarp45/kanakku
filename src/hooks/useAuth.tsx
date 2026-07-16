@@ -25,30 +25,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const isMountedRef = useRef(true);
 
-  const ensureProfile = async (nextUser: User | null) => {
-    if (!nextUser) return;
-
-    const displayName =
-      (nextUser.user_metadata?.display_name as string | undefined) ||
-      nextUser.email?.split("@")[0] ||
-      "User";
-
-    const { error } = await supabase
-      .from("profiles")
-      .upsert(
-        {
-          user_id: nextUser.id,
-          display_name: displayName,
-          currency: "INR",
-        },
-        { onConflict: "user_id" }
-      );
-
-    if (error) {
-      console.error("Failed to ensure user profile:", error);
-    }
-  };
-
   useEffect(() => {
     isMountedRef.current = true;
 
@@ -58,7 +34,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isMountedRef.current) return;
       setSession(session);
       setUser(session?.user ?? null);
-      void ensureProfile(session?.user ?? null);
       setLoading(false);
     });
 
@@ -69,7 +44,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isMountedRef.current) return;
       setSession(session);
       setUser(session?.user ?? null);
-      void ensureProfile(session?.user ?? null);
       // Do NOT set loading=false here — loading is only controlled by getSession above.
     });
 

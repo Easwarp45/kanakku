@@ -143,14 +143,18 @@ export function useCreateBudget() {
 
 export function useUpdateBudget() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (data: { id: string; amount: number }) => {
+      if (!user?.id) throw new Error('User not authenticated');
+
       const { error } = await supabase
         .from('budgets')
         .update({ amount: data.amount })
-        .eq('id', data.id);
+        .eq('id', data.id)
+        .eq('user_id', user.id);
 
       if (error) throw error;
     },
@@ -174,14 +178,18 @@ export function useUpdateBudget() {
 
 export function useDeleteBudget() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (id: string) => {
+      if (!user?.id) throw new Error('User not authenticated');
+
       const { error } = await supabase
         .from('budgets')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', user.id);
 
       if (error) throw error;
     },

@@ -15,7 +15,7 @@ export function useExpenses(filters?: { startDate?: string; endDate?: string; ca
 
       let query = supabase
         .from('expenses')
-        .select('id,amount,category,description,payment_method,expense_date,updated_at')
+        .select('id,user_id,amount,category,description,payment_method,expense_date,receipt_url,created_at,updated_at')
         .eq('user_id', user.id)
         .order('expense_date', { ascending: false });
 
@@ -84,7 +84,7 @@ export function useRecentExpenses(limit: number = 5) {
 
       const { data, error } = await supabase
         .from('expenses')
-        .select('id,amount,category,description,payment_method,expense_date')
+        .select('id,user_id,amount,category,description,payment_method,expense_date,receipt_url,created_at,updated_at')
         .eq('user_id', user.id)
         .order('expense_date', { ascending: false })
         .limit(limit);
@@ -286,7 +286,7 @@ export function useRecentUPIExpenses(limit: number = 8) {
 
       const { data, error } = await supabase
         .from('expenses')
-        .select('id,amount,category,description,payment_method,expense_date,created_at')
+        .select('id,user_id,amount,category,description,payment_method,expense_date,receipt_url,created_at,updated_at')
         .eq('user_id', user.id)
         .eq('payment_method', 'upi')
         .order('expense_date', { ascending: false })

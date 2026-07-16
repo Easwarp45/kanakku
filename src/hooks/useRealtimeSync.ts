@@ -36,10 +36,27 @@ export function useRealtimeSync() {
       )
       .on(
         'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['profile'] });
+          queryClient.invalidateQueries({ queryKey: ['groups'] });
+          queryClient.invalidateQueries({ queryKey: ['group-members'] });
+          queryClient.invalidateQueries({ queryKey: ['group-chats'] });
+        }
+      )
+      .on(
+        'postgres_changes',
         { event: '*', schema: 'public', table: 'budgets', filter: `user_id=eq.${user.id}` },
         () => {
           queryClient.invalidateQueries({ queryKey: ['budgets'] });
           queryClient.invalidateQueries({ queryKey: ['budgets-with-spent'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'financial_goals', filter: `user_id=eq.${user.id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['financial-goals'] });
         }
       )
       .subscribe();
